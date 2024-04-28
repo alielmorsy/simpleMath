@@ -7,6 +7,7 @@
 #include "array.hpp"
 #include "utils.h"
 #include "exceptions.h"
+#include "array_utils.h"
 
 static void check_shape(sm_size *const &one, sm_size *const &two, int size) {
     for (int i = 0; i < size; ++i) {
@@ -31,7 +32,7 @@ SMArray<T>::SMArray(const std::initializer_list<T> &list) {
     this->strides = new sm_size[1];
     this->totalSize = this->shape[0] = list.size();
     this->strides[0] = 1;
-    this->data = (T *) malloc(sizeof(T) * list.size());
+    this->data = static_cast<T *>(malloc(sizeof(T) * list.size()));
     memcpy(this->data, list.begin(), sizeof(T) * list.size());
 
 }
@@ -39,13 +40,6 @@ SMArray<T>::SMArray(const std::initializer_list<T> &list) {
 TEMPLATE_TYPE SMArray<T>::SMArray(const std::initializer_list<SMArray<T>> &list) {
     processArrays(list);
 }
-
-//TEMPLATE_TYPE SMArray<T>::SMArray(T *data, sm_size *shape, int ndim) {
-//    this->data = data;
-//    this->shape = shape;
-//    this->ndim = ndim;
-//    calculateStride();
-//}
 
 TEMPLATE_TYPE void SMArray<T>::processArrays(const std::initializer_list<SMArray<T>> &list) {
 
@@ -61,7 +55,7 @@ TEMPLATE_TYPE void SMArray<T>::processArrays(const std::initializer_list<SMArray
     }
     this->ndim = ndim;
     sm_size totalSize = this->totalSize = prod_sm_size(this->shape, ndim);
-    this->data = reinterpret_cast<T *>(malloc(sizeof(T) * totalSize));
+    this->data = static_cast<T *>(malloc(sizeof(T) * totalSize));
     sm_size copiedData = 0;
     for (int i = 0; i < list.size(); ++i) {
         const SMArray<T> &arr = *(list.begin() + i);
@@ -74,7 +68,7 @@ TEMPLATE_TYPE void SMArray<T>::processArrays(const std::initializer_list<SMArray
 
 TEMPLATE_TYPE void SMArray<T>::calculateStride() {
     auto shape = this->shape;
-    this->strides = reinterpret_cast<sm_size *>(malloc(sizeof(sm_size) * this->ndim));
+    this->strides = static_cast<sm_size *>(malloc(sizeof(sm_size) * this->ndim));
     sm_size currentStride = 1;
     for (int i = this->ndim - 1; i >= 0; --i) {
         this->strides[i] = currentStride;
@@ -156,6 +150,55 @@ SMArray<T> *SMArray<T>::reshape(std::initializer_list<sm_size> shapeList) {
     }
     return this->reshape(shape, ndim);
 }
+
+TEMPLATE_TYPE
+SMArray<T> SMArray<T>::operator+(const SMArray<T> &arr) {
+    ArrayInfo arr1;
+    ArrayInfo arr2;
+    int result = calculate_broadcasting_stride(this->shape, this->ndim, arr.shape, arr.ndim, this->strides, arr.strides,
+                                               &arr1, &arr2);
+    if (result == SM_FAIL) {
+        throw BadBroadCastException(this->shape, this->ndim, arr.shape, arr.ndim);
+    }
+    auto *indicis = new sm_size[arr1.ndim];
+
+    sm_size maxTotalSize;
+    sm_size *shapeToDetermine;
+    int ndim = arr1.ndim;
+    if (this->totalSize > arr.totalSize) {
+        maxTotalSize = this->totalSize;
+        shapeToDetermine = arr1.shape;
+    } else {
+        maxTotalSize = arr.totalSize;
+        shapeToDetermine = arr2.shape;
+    }
+    T *data = static_cast<T *>(malloc(sizeof(T) * maxTotalSize));
+    for (int i = 0; i < maxTotalSize; ++i) {
+        sm_size remainder = i;
+        // Calculate the index sequence
+        for (int dim = ndim - 1; dim >= 0; dim--) {
+            indicis[dim] = remainder % shapeToDetermine[dim];
+            remainder /= shapeToDetermine[dim];
+        }
+        sm_size index1 = 0, index2 = 0;
+        for (int j = 0; j < arr1.ndim; ++j) {
+            index1 += indicis[j] * arr1.strides[j];
+            index2 += indicis[j] * arr2.strides[j];
+        }
+        data[i] = this->data[index1] + arr.data[index2];
+    }
+    auto *finalShape = new sm_size[arr1.ndim];
+    for (int i = 0; i < arr1.ndim; ++i) {
+        finalShape[i] = shapeToDetermine[i];
+    }
+    delete[] indicis;
+    free(arr1.shape);
+    free(arr2.shape);
+    free(arr1.strides);
+    free(arr2.strides);
+
+    return SMArray<T>(data, finalShape, ndim);
+}
 //TODO: FIX ME DADDY
 TEMPLATE_TYPE void SMArray<T>::toString() {
     //Need to be made.
@@ -164,9 +207,7 @@ TEMPLATE_TYPE void SMArray<T>::toString() {
 
 template<typename T>
 SMArray<T>::~SMArray<T>() {
-    for (auto pointer: this->childrenPointers) {
-        delete pointer;
-    }
+//    printf("Is View: %d\n", this->isView);
     free(this->shape);
     free(this->strides);
     if (!this->isView) {

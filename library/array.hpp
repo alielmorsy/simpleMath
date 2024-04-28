@@ -30,31 +30,30 @@ class SMArray {
 private:
     T *data;
     T value;
-    sm_size *shape;
     sm_size *strides;
     sm_size totalSize;
-    int ndim;
-    std::vector<SMArray<T> *> childrenPointers;
     unsigned char isView = 0;
 
-//
-    INDICIS_TEMPLATE SMArray<T> &access(const Indexer<Indices...> &indexer);
-
-//
-//    CONSTRUCTOR_TEMPLATE void processLists(std::initializer_list<C> &list);
-//
-//
-//    template<typename C, typename ...Args>
     void processArrays(const std::initializer_list<SMArray<T>> &list);
 
     void calculateStride();
 
 public:
+    sm_size *shape;
+    int ndim;
+
     SMArray(T *data, sm_size *shape, int ndim);
 
     SMArray(std::initializer_list<T> const &list);
 
     SMArray(const std::initializer_list<SMArray<T>> &list);
+
+    SMArray(const SMArray &other) {
+        std::cout << (int) other.isView << std::endl;
+        std::cout << "Copy constructor called\n";
+    }
+
+    SMArray(SMArray &&other) noexcept { std::cout << "Move constructor called\n"; }
 
     SMArray<T> &operator[](const std::vector<Slice *> &slices);
 
@@ -82,6 +81,14 @@ public:
         return *this;
     }
 
+    SMArray<T> &operator=(T val) {
+        assert(this->totalSize >= 1);
+        data[0] = val;
+        return *this;
+    }
+
+    SMArray<T> operator+(const SMArray<T> &arr);
+
     void toString();
 
     ~SMArray<T>();
@@ -96,20 +103,6 @@ static inline sm_size get_size(Slice index, sm_size axisSize) {
         index.end = axisSize - 1;
     }
     return index.end - index.start;
-}
-
-TEMPLATE_TYPE
-INDICIS_TEMPLATE SMArray<T> &SMArray<T>::access(const Indexer<Indices...> &indexer) {
-    auto indices = indexer.indices;
-    constexpr std::size_t tupleSize = std::tuple_size<decltype(indices)>::value;
-    assert(this->ndim == tupleSize);
-    sm_size accessSize = 0;
-
-    for (int i = 0; i < tupleSize; ++i) {
-        accessSize += get_size(std::get<0>(indices), this->shape[i]);
-    }
-    printf("Access Size: %ld\n", accessSize);
-    return SMArray<T>({1});
 }
 
 

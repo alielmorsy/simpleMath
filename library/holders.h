@@ -14,9 +14,10 @@
 
 #define ACCESS(...) make_multi_index(__VA_ARGS__)
 
-typedef __int64 sm_size;
-
-
 #define  IS_SLICE 0
 #define  IS_IDX 1
 
+#define SM_SUCCESS 0
+#define SM_FAIL (-1)
+
+typedef __int64 sm_size;
