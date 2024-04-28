@@ -7,5 +7,5 @@ It still a demo project that I code from time to time. I aim to support all impr
 - [x] Slicing.
 - [x] Assigning (Still Doing Testing on it).
 - [x] Reshaping.
-- [ ] Operations.
+- [X] Operations.
 - [ ] Transpose.
