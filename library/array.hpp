@@ -68,7 +68,7 @@ public:
         return this->data[0];
     }
 
-     SMArray<T> &operator=(const SMArray<T> &arr) {
+    SMArray<T> &operator=(const SMArray<T> &arr) {
         assert(this->totalSize >= arr.totalSize);
         if (this->isView) {
             for (int i = 0; i < arr.totalSize; ++i) {
@@ -88,22 +88,14 @@ public:
     }
 
     SMArray<T> operator+(const SMArray<T> &arr);
+    SMArray<T> operator-(const SMArray<T> &arr);
+    SMArray<T> operator/(const SMArray<T> &arr);
+    SMArray<T> operator*(const SMArray<T> &arr);
 
     void toString();
 
     ~SMArray<T>();
 };
-
-static inline sm_size get_size(sm_size index, sm_size axisSize) {
-    return 1;
-}
-
-static inline sm_size get_size(Slice index, sm_size axisSize) {
-    if (index.end == -1) {
-        index.end = axisSize - 1;
-    }
-    return index.end - index.start;
-}
 
 
 inline static Slice *process_index(Slice &slice) {

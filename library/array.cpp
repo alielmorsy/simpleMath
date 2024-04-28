@@ -7,7 +7,7 @@
 #include "array.hpp"
 #include "utils.h"
 #include "exceptions.h"
-#include "array_utils.h"
+#include "array_utils.cpp"
 
 static void check_shape(sm_size *const &one, sm_size *const &two, int size) {
     for (int i = 0; i < size; ++i) {
@@ -153,51 +153,86 @@ SMArray<T> *SMArray<T>::reshape(std::initializer_list<sm_size> shapeList) {
 
 TEMPLATE_TYPE
 SMArray<T> SMArray<T>::operator+(const SMArray<T> &arr) {
-    ArrayInfo arr1;
-    ArrayInfo arr2;
-    int result = calculate_broadcasting_stride(this->shape, this->ndim, arr.shape, arr.ndim, this->strides, arr.strides,
-                                               &arr1, &arr2);
-    if (result == SM_FAIL) {
+    ArrayInfo<T> arr1;
+    ArrayInfo<T> arr2;
+    ArrayInfo<T> result;
+    arr1.data = this->data;
+    arr1.ndim = this->ndim;
+    arr1.shape = this->shape;
+    arr1.strides = this->strides;
+    arr2.data = arr.data;
+    arr2.ndim = arr.ndim;
+    arr2.shape = arr.shape;
+    arr2.strides = arr.strides;
+    int state = element_wise_operation(&arr1, &arr2, &result, SM_OPERATION_ADD);
+    if (state != SM_SUCCESS) {
         throw BadBroadCastException(this->shape, this->ndim, arr.shape, arr.ndim);
     }
-    auto *indicis = new sm_size[arr1.ndim];
 
-    sm_size maxTotalSize;
-    sm_size *shapeToDetermine;
-    int ndim = arr1.ndim;
-    if (this->totalSize > arr.totalSize) {
-        maxTotalSize = this->totalSize;
-        shapeToDetermine = arr1.shape;
-    } else {
-        maxTotalSize = arr.totalSize;
-        shapeToDetermine = arr2.shape;
-    }
-    T *data = static_cast<T *>(malloc(sizeof(T) * maxTotalSize));
-    for (int i = 0; i < maxTotalSize; ++i) {
-        sm_size remainder = i;
-        // Calculate the index sequence
-        for (int dim = ndim - 1; dim >= 0; dim--) {
-            indicis[dim] = remainder % shapeToDetermine[dim];
-            remainder /= shapeToDetermine[dim];
-        }
-        sm_size index1 = 0, index2 = 0;
-        for (int j = 0; j < arr1.ndim; ++j) {
-            index1 += indicis[j] * arr1.strides[j];
-            index2 += indicis[j] * arr2.strides[j];
-        }
-        data[i] = this->data[index1] + arr.data[index2];
-    }
-    auto *finalShape = new sm_size[arr1.ndim];
-    for (int i = 0; i < arr1.ndim; ++i) {
-        finalShape[i] = shapeToDetermine[i];
-    }
-    delete[] indicis;
-    free(arr1.shape);
-    free(arr2.shape);
-    free(arr1.strides);
-    free(arr2.strides);
+    return SMArray<T>(result.data, result.shape, result.ndim);
+}
 
-    return SMArray<T>(data, finalShape, ndim);
+template<typename T>
+SMArray<T> SMArray<T>::operator-(const SMArray<T> &arr) {
+    ArrayInfo<T> arr1;
+    ArrayInfo<T> arr2;
+    ArrayInfo<T> result;
+    arr1.data = this->data;
+    arr1.ndim = this->ndim;
+    arr1.shape = this->shape;
+    arr1.strides = this->strides;
+    arr2.data = arr.data;
+    arr2.ndim = arr.ndim;
+    arr2.shape = arr.shape;
+    arr2.strides = arr.strides;
+    int state = element_wise_operation(&arr1, &arr2, &result, SM_OPERATION_SUBSTRACT);
+    if (state != SM_SUCCESS) {
+        throw BadBroadCastException(this->shape, this->ndim, arr.shape, arr.ndim);
+    }
+
+    return SMArray<T>(result.data, result.shape, result.ndim);
+}
+
+template<typename T>
+SMArray<T> SMArray<T>::operator/(const SMArray<T> &arr) {
+    ArrayInfo<T> arr1;
+    ArrayInfo<T> arr2;
+    ArrayInfo<T> result;
+    arr1.data = this->data;
+    arr1.ndim = this->ndim;
+    arr1.shape = this->shape;
+    arr1.strides = this->strides;
+    arr2.data = arr.data;
+    arr2.ndim = arr.ndim;
+    arr2.shape = arr.shape;
+    arr2.strides = arr.strides;
+    int state = element_wise_operation(&arr1, &arr2, &result, SM_OPERATION_DIVIDE);
+    if (state != SM_SUCCESS) {
+        throw BadBroadCastException(this->shape, this->ndim, arr.shape, arr.ndim);
+    }
+
+    return SMArray<T>(result.data, result.shape, result.ndim);
+}
+
+template<typename T>
+SMArray<T> SMArray<T>::operator*(const SMArray<T> &arr) {
+    ArrayInfo<T> arr1;
+    ArrayInfo<T> arr2;
+    ArrayInfo<T> result;
+    arr1.data = this->data;
+    arr1.ndim = this->ndim;
+    arr1.shape = this->shape;
+    arr1.strides = this->strides;
+    arr2.data = arr.data;
+    arr2.ndim = arr.ndim;
+    arr2.shape = arr.shape;
+    arr2.strides = arr.strides;
+    int state = element_wise_operation(&arr1, &arr2, &result, SM_ELEMENT_WISE_MULTIPLY);
+    if (state != SM_SUCCESS) {
+        throw BadBroadCastException(this->shape, this->ndim, arr.shape, arr.ndim);
+    }
+
+    return SMArray<T>(result.data, result.shape, result.ndim);
 }
 //TODO: FIX ME DADDY
 TEMPLATE_TYPE void SMArray<T>::toString() {

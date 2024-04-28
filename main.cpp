@@ -34,23 +34,26 @@ int main() {
 //        auto a = arr + arr2;
 //
 //    }
-    SMArray<int> arr = {{{1, 2, 3}, {1, 2, 3}},
+    SMArray<double> arr = {{{1, 2, 3}, {1, 2, 3}},
                         {{1, 2, 3}, {1, 2, 3}}};
+    SMArray<double>arr2 = {{1, 2, 3},{1, 2, 3}};
+
+    auto a = arr / arr2;
     auto stop = high_resolution_clock::now();
     // Calculate the duration
     auto duration = duration_cast<microseconds>(stop - start);
 
     // Output the duration
     cout << "Execution time: " << duration.count() << " microseconds" << endl;
-//    for (int i = 0; i < a.shape[0]; ++i) {
-//        for (int j = 0; j < a.shape[1]; ++j) {
-//            for (int k = 0; k < a.shape[2]; ++k) {
-//                cout << static_cast<int>(a[ACCESS(i, j, k)]) << " ";
-//            }
-//            cout << "//";
-//        }
-//        cout << endl;
-//    }
+    for (int i = 0; i < a.shape[0]; ++i) {
+        for (int j = 0; j < a.shape[1]; ++j) {
+            for (int k = 0; k < a.shape[2]; ++k) {
+                cout << static_cast<double>(a[ACCESS(i, j, k)]) << " ";
+            }
+            cout << "//";
+        }
+        cout << endl;
+    }
     return 0;
 }
 
