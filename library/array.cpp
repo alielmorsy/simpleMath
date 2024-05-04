@@ -262,6 +262,22 @@ SMArray<T> SMArray<T>::operator*(const SMArray<T> &arr) {
 
     return SMArray<T>(result.data, result.shape, result.ndim);
 }
+
+template<typename T>
+SMArray<T> SMArray<T>::repeat(int numberOfRepeats) {
+    assert(numberOfRepeats > 1);
+    sm_size newTotalSize = this->totalSize * numberOfRepeats;
+    sm_size *newShape = new sm_size[1];
+    newShape[0] = newTotalSize;
+    T *newData = static_cast<T *>(malloc(sizeof(T) * newTotalSize));
+    for (int i = 0; i < totalSize; i++) {
+        for (int j = 0; j < numberOfRepeats; ++j) {
+            newData[i + j] = this->data[i];
+        }
+
+    }
+    return SMArray<T>(newData, newShape, 1);
+}
 //TODO: FIX ME DADDY
 TEMPLATE_TYPE void SMArray<T>::toString() {
     //Need to be made.
