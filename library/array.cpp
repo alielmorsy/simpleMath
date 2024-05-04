@@ -9,18 +9,40 @@
 #include "exceptions.h"
 #include "array_utils.cpp"
 
-static void check_shape(sm_size *const &one, sm_size *const &two, int size) {
-    for (int i = 0; i < size; ++i) {
-        assert(one[i] == two[i]);
-    }
-}
+
+template SMArray<double> *ones<double>(std::initializer_list<sm_size> shapeList);
+
+template SMArray<double> *ones<double>(sm_size *shape, int ndim);
+
+template SMArray<double> *zeros<double>(std::initializer_list<sm_size> shape);
+
+template SMArray<double> zeros<double>(sm_size *shape, int ndim);
+
+
+template SMArray<int> *ones<int>(std::initializer_list<sm_size> shapeList);
+
+template SMArray<int> *ones<int>(sm_size *shape, int ndim);
+
+template SMArray<int> *zeros<int>(std::initializer_list<sm_size> shape);
+
+template SMArray<int> *zeros<int>(sm_size *shape, int ndim);
+
+
+template SMArray<long> *ones<long>(std::initializer_list<sm_size> shapeList);
+
+template SMArray<long> *ones<long>(sm_size *shape, int ndim);
+
+template SMArray<long> *zeros<long>(std::initializer_list<sm_size> shape);
+
+template SMArray<long> *zeros<long>(sm_size *shape, int ndim);
+
 
 TEMPLATE_TYPE
-SMArray<T>::SMArray(T *data, sm_size *shape, int ndim) {
+SMArray<T>::SMArray(T *data, sm_size *shape, int ndim, unsigned char isView) {
     this->data = data;
     this->shape = shape;
     this->ndim = ndim;
-    this->isView = 1;
+    this->isView = isView;
     this->totalSize = prod_sm_size(this->shape, ndim);
     this->calculateStride();
 }
@@ -76,7 +98,8 @@ TEMPLATE_TYPE void SMArray<T>::calculateStride() {
 
     }
 }
-
+//CURRENT ISSUE IS ACCESSING. I AM ACCESSING OBJECT AS A VALUE THAT's SUCKs to performance.
+//Maybe I can move it to caller instead of [] :(.wwwww
 TEMPLATE_TYPE T &SMArray<T>::operator[](sm_size index) const {
     assert(this->ndim == 1);
     T &t = this->data[index];
@@ -85,10 +108,12 @@ TEMPLATE_TYPE T &SMArray<T>::operator[](sm_size index) const {
 
 
 TEMPLATE_TYPE
-SMArray<T> &SMArray<T>::operator[](const std::vector<Slice *> &slices) {
+SMArray<T> SMArray<T>::operator[](const std::vector<Slice *> *slicesPointer) {
+    auto slices = *slicesPointer;
     size_t slicesSize = slices.size();
     assert(slicesSize <= this->ndim);
     sm_size *newShape = static_cast<sm_size *>(malloc(sizeof(sm_size) * slicesSize));
+    int isIdx = 1;
     T *p = this->data;
     for (int i = 0; i < slicesSize; ++i) {
         auto slice = slices[i];
@@ -100,8 +125,10 @@ SMArray<T> &SMArray<T>::operator[](const std::vector<Slice *> &slices) {
             newShape[i] = 0;
         } else {
             newShape[i] = slice->end - slice->start;
+            isIdx = 0;
         }
 
+        delete slice;
 
     }
     //Clear empty axes If found.
@@ -120,10 +147,11 @@ SMArray<T> &SMArray<T>::operator[](const std::vector<Slice *> &slices) {
     }
     auto *finalShape = static_cast<sm_size *>(malloc(sizeof(sm_size) * ndim));
     memcpy(finalShape, tempShape, ndim * sizeof(sm_size));
-    auto a = SMArray<T>(p, finalShape, ndim);
     free(newShape);
     free(tempShape);
-    return a;
+
+    delete slicesPointer;
+    return SMArray<T>(p, finalShape, ndim);
 }
 
 TEMPLATE_TYPE
@@ -242,7 +270,9 @@ TEMPLATE_TYPE void SMArray<T>::toString() {
 
 template<typename T>
 SMArray<T>::~SMArray<T>() {
-//    printf("Is View: %d\n", this->isView);
+    if (!freeIt) return;
+//    printf("Is View: %d\n", data[0]);
+    printf("Clearing\n");
     free(this->shape);
     free(this->strides);
     if (!this->isView) {
@@ -273,3 +303,61 @@ printArray(const T *data, sm_size *shape, int num_dimensions, size_t current_dim
         std::cout << std::endl;  // Newline at the end of each row
     }
 }
+
+
+TEMPLATE_TYPE
+SMArray<T> *ones(std::initializer_list<sm_size> shapeList) {
+    size_t ndim = shapeList.size();
+    int i = 0;
+    auto *shape = static_cast<sm_size *>(malloc(sizeof(sm_size) * ndim));
+    for (auto axis: shapeList) {
+        shape[i] = axis;
+        i++;
+    }
+    auto array = ones<T>(shape, ndim);
+    free(shape);
+    return array;
+}
+
+template<typename T>
+SMArray<T> *ones(sm_size *shape, int ndim) {
+    sm_size totalSize = prod_sm_size(shape, ndim);
+    sm_size size = sizeof(T) * totalSize;
+    T *data = static_cast<T *>(malloc(size));
+    for (int i = 0; i < totalSize; ++i) {
+        data[i] = static_cast<T>(1);
+    }
+
+    auto finalShape = static_cast<sm_size *>( malloc(ndim * sizeof(sm_size)));
+    memcpy(finalShape, shape, ndim * sizeof(sm_size));
+    SMArray<T> *arr = new SMArray<T>(data, finalShape, ndim, 0);
+    return arr;
+}
+
+template<typename T>
+SMArray<T> *zeros(std::initializer_list<sm_size> shapeList) {
+    size_t ndim = shapeList.size();
+    int i = 0;
+    auto *shape = static_cast<sm_size *>(malloc(sizeof(sm_size) * ndim));
+    for (auto axis: shapeList) {
+        shape[i] = axis;
+        i++;
+    }
+//    auto arr = zeros<T>(shape, ndim);
+    free(shape);
+    return nullptr;
+}
+
+template<typename T>
+SMArray<T> zeros(sm_size *shape, int ndim) {
+    sm_size totalSize = prod_sm_size(shape, ndim);
+    sm_size size = sizeof(T) * totalSize;
+    T *data = static_cast<T *>(malloc(size));
+    for (int i = 0; i < totalSize; ++i) {
+        data[i] = 0;
+    }
+
+    auto array = SMArray<T>(data, shape, ndim, 0);
+    return array;
+}
+
