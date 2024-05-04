@@ -146,7 +146,7 @@ SMArray<T> SMArray<T>::operator[](const std::vector<Slice *> *slicesPointer) {
 
     }
     auto *finalShape = static_cast<sm_size *>(malloc(sizeof(sm_size) * ndim));
-    memcpy(finalShape, tempShape, ndim * sizeof(sm_size));
+    sm_size_memcpy(finalShape, tempShape, ndim);
     free(newShape);
     free(tempShape);
 
@@ -272,7 +272,7 @@ template<typename T>
 SMArray<T>::~SMArray<T>() {
     if (!freeIt) return;
 //    printf("Is View: %d\n", data[0]);
-    printf("Clearing\n");
+//    printf("Clearing\n");
     free(this->shape);
     free(this->strides);
     if (!this->isView) {
@@ -329,7 +329,7 @@ SMArray<T> *ones(sm_size *shape, int ndim) {
     }
 
     auto finalShape = static_cast<sm_size *>( malloc(ndim * sizeof(sm_size)));
-    memcpy(finalShape, shape, ndim * sizeof(sm_size));
+    sm_size_memcpy(finalShape, shape, ndim);
     SMArray<T> *arr = new SMArray<T>(data, finalShape, ndim, 0);
     return arr;
 }

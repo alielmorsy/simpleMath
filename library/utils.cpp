@@ -7,9 +7,10 @@
 #include <cstring>
 #include <string>
 
+#define VECTOR_SIZE 4
+
 sm_size prod_sm_size(sm_size *arr, int size) {
     sm_size result = 1;
-#pragma omp simd
     for (int i = 0; i < size; ++i) {
         result *= arr[i];
     }
@@ -33,6 +34,12 @@ void fast_mem_cpy(void *pvDest, void *pvSrc, size_t nBytes) {
     _mm_sfence();
 }
 
+void sm_size_memcpy(sm_size *dest, sm_size *source, sm_size size) {
+    for (int i = 0; i < size; ++i) {
+        dest[i] = source[i];
+    }
+}
+
 char *convert_shape_to_string(sm_size *shape, int ndim) {
     std::string shapeText = "(";
     for (int i = 0; i < ndim; ++i) {
@@ -43,7 +50,7 @@ char *convert_shape_to_string(sm_size *shape, int ndim) {
     }
 
     shapeText += ")";
-    size_t size = sizeof(char) * shapeText.size()+1;
+    size_t size = sizeof(char) * shapeText.size() + 1;
     char *shapeTestP = static_cast<char *>(malloc(size));
 #ifdef _MSC_VER
     strcpy_s(shapeTestP, size, shapeText.c_str());
