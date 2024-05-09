@@ -12,15 +12,18 @@ void a() {
     SMArray<int> arr = {{{1,  2, 3}, {1,  2, 3}},
                         {{34, 5, 6}, {34, 5, 6}}};
 }
+
 //8626
 int main() {
     auto start = high_resolution_clock::now();
 
-    SMArray<double> arr = {{{1, 2, 3}, {1, 2, 3}},
-                           {{1, 2, 3}, {1, 2, 3}}};
+    SMArray<double> arr = {
+            {{1, 2, 3}, {1, 2, 3}},
+            {{1, 7, 3}, {1, 6, 3}}
+    };
     auto arr2 = ones<double>(arr.shape, arr.ndim);
 
-    auto a = arr + arr2;
+    auto a = arr.repeat(3, 0);
     auto stop = high_resolution_clock::now();
     // Calculate the duration
     auto duration = duration_cast<microseconds>(stop - start);

@@ -278,6 +278,53 @@ SMArray<T> SMArray<T>::repeat(int numberOfRepeats) {
     }
     return SMArray<T>(newData, newShape, 1);
 }
+
+template<typename T>
+SMArray<T> SMArray<T>::repeat(int numberOfRepeats, int axis) {
+    assert(axis <= this->ndim - 1);
+    if (this->ndim == 1) {
+        return this->repeat(numberOfRepeats);
+    }
+    sm_size newTotalSize = numberOfRepeats * this->totalSize;
+    sm_size *indicis = new sm_size[this->ndim];
+    sm_size previousAxisVal = 0;
+    sm_size toCopy;
+    toCopy = 1;
+    for (int i = axis + 1; i < this->ndim; ++i) {
+        toCopy *= this->shape[i];
+    }
+    T *newData = static_cast<T *>(malloc(sizeof(T) * newTotalSize));
+    T *originalPointer = newData;
+    for (int i = 0, k = 0; i < this->totalSize; ++i, ++k) {
+        sm_size reminder = i;
+        for (int j = this->ndim - 1; j >= 0; --j) {
+            indicis[j] = reminder % this->shape[j];
+            reminder = reminder / this->shape[j];
+        }
+        if (indicis[axis] != previousAxisVal) {
+            for (int j = 1; j <= numberOfRepeats - 1; ++j) {
+                sm_size movedPointer = toCopy;
+                memcpy(newData + movedPointer, newData, toCopy * sizeof(T));
+                newData += movedPointer;
+            }
+            previousAxisVal = indicis[axis];
+            k = 0;
+            newData = newData + toCopy;
+        }
+        newData[k] = this->data[i];
+    }
+    for (int i = 1; i < numberOfRepeats; ++i) {
+        sm_size movedPointer = toCopy;
+        memcpy(newData + movedPointer, newData, toCopy * sizeof(T));
+        newData += movedPointer;
+    }
+    sm_size *newShape = new sm_size[this->ndim];
+    sm_size_memcpy(newShape, shape, this->ndim);
+    newShape[axis] = newShape[axis] * numberOfRepeats;
+    delete[] indicis;
+
+    return SMArray<T>(originalPointer, newShape, this->ndim, 0);
+}
 //TODO: FIX ME DADDY
 TEMPLATE_TYPE void SMArray<T>::toString() {
     //Need to be made.

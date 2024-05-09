@@ -105,6 +105,7 @@ public:
     SMArray<T> operator*(const SMArray<T> &arr);
 
     SMArray<T> repeat(int numberOfRepeats);
+    SMArray<T> repeat(int numberOfRepeats,int axis);
 
     void toString();
 
