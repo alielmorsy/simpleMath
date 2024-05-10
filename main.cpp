@@ -19,11 +19,11 @@ int main() {
 
     SMArray<double> arr = {
             {{1, 2, 3}, {1, 2, 3}},
-            {{1, 7, 3}, {1, 6, 3}}
+            {{1, 2, 3}, {1, 2, 3}}
     };
     auto arr2 = ones<double>(arr.shape, arr.ndim);
 
-    auto a = arr.repeat(3, 0);
+    auto a = arr.transpose();
     auto stop = high_resolution_clock::now();
     // Calculate the duration
     auto duration = duration_cast<microseconds>(stop - start);

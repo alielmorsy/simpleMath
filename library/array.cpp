@@ -325,6 +325,22 @@ SMArray<T> SMArray<T>::repeat(int numberOfRepeats, int axis) {
 
     return SMArray<T>(originalPointer, newShape, this->ndim, 0);
 }
+
+template<typename T>
+SMArray<T> SMArray<T>::transpose() {
+    auto *newShape = static_cast<sm_size *>( malloc(sizeof(sm_size) * this->ndim));
+    auto *newStrides = static_cast<sm_size *>( malloc(sizeof(sm_size) * this->ndim));
+    for (int i = 0, j = ndim - 1; i < ndim; ++i, --j) {
+        newShape[j] = shape[i];
+        newStrides[j] = strides[i];
+    }
+    auto size = sizeof(T) * this->totalSize;
+    auto *newData = static_cast<T *>(malloc(size));
+    memcpy(newData, data, size);
+    auto arr = SMArray<T>(newData, newShape, this->ndim, 0);
+    arr.strides = newStrides;
+    return arr;
+}
 //TODO: FIX ME DADDY
 TEMPLATE_TYPE void SMArray<T>::toString() {
     //Need to be made.

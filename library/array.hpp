@@ -48,11 +48,11 @@ public:
 
     SMArray(SMArray &&other) noexcept {
         std::cout << "Move constructor called\n";
-        other.data = data;
-        other.ndim = ndim;
-        other.shape = shape;
-        other.strides = strides;
-        freeIt = 0;
+        data = other.data;
+        ndim = other.ndim;
+        shape = other.shape;
+        strides = other.strides;
+        other.freeIt = 0;
     }
 
     SMArray<T> operator[](const std::vector<Slice *> *slices);
@@ -105,7 +105,10 @@ public:
     SMArray<T> operator*(const SMArray<T> &arr);
 
     SMArray<T> repeat(int numberOfRepeats);
-    SMArray<T> repeat(int numberOfRepeats,int axis);
+
+    SMArray<T> repeat(int numberOfRepeats, int axis);
+
+    SMArray<T> transpose();
 
     void toString();
 
