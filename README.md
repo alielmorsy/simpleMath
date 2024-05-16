@@ -13,6 +13,8 @@ It still a demo project that I code from time to time. I aim to support all impo
 - [X] Operations.
 - [X] Repeating.
 - [X] Transpose.
+- [X] Sorting.
+- [ ] Iterations.
 
 # Help
 
