@@ -7,7 +7,7 @@
 #include "array.hpp"
 #include "utils.h"
 #include "exceptions.h"
-#include "array_utils.cpp"
+#include "array_utils.h"
 
 
 template SMArray<double> *ones<double>(std::initializer_list<sm_size> shapeList);
@@ -440,3 +440,17 @@ SMArray<T> zeros(sm_size *shape, int ndim) {
     return array;
 }
 
+
+template<typename T>
+void SMArray<T>::sort() {
+    auto data = this->data;
+    auto totalSize = this->totalSize;
+    for (int i = (totalSize/2)-1; i >=0; --i) {
+        heapify(data, totalSize, i);
+    }
+    for (int i = totalSize - 1; i > 0; --i) {
+        std::swap(data[i], data[0]);
+        heapify(data, i, 0);
+    }
+
+}

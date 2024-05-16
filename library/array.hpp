@@ -29,6 +29,40 @@ public:
     int ndim;
     int freeIt = 1;
 
+    struct Iterator {
+
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = T;
+        using pointer = T *;  // or also value_type*
+        using reference = T &;  // or also value_type&
+        Iterator(pointer ptr) : m_ptr(ptr) {}
+
+        reference operator*() const { return *m_ptr; }
+
+        pointer operator->() { return m_ptr; }
+
+        // Prefix increment
+        Iterator &operator++() {
+            m_ptr++;
+            return *this;
+        }
+
+        // Postfix increment
+        Iterator operator++(int) {
+            Iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        friend bool operator==(const Iterator &a, const Iterator &b) { return a.m_ptr == b.m_ptr; };
+
+        friend bool operator!=(const Iterator &a, const Iterator &b) { return a.m_ptr != b.m_ptr; };
+
+    private:
+        pointer m_ptr;
+    };
+
     SMArray(T *data, sm_size *shape, int ndim, unsigned char isView);
 
     SMArray(T *data, sm_size *shape, int ndim) : SMArray(data, shape, ndim, 1) {}
@@ -110,7 +144,13 @@ public:
 
     SMArray<T> transpose();
 
+    void sort();
+
     void toString();
+
+    Iterator begin() { return Iterator(data); }
+
+    Iterator end() { return Iterator(data + totalSize); }
 
     ~SMArray<T>();
 };
