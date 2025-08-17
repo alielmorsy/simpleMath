@@ -6,18 +6,9 @@
 #include <Slice.h>
 
 #include <SMUtils.h>
-
 #define SLICE(start,end) Slice(start,end)
 
 namespace sm {
-    inline size_t calculateTotalSize(std::vector<size_t> &shape) {
-        size_t totalSize = 1;
-        for (auto element: shape) {
-            totalSize *= element;
-        }
-        return totalSize;
-    }
-
     // Concept for arithmetic or std::complex<arithmetic>
     template<typename T>
     concept ArithmeticOrComplex =
@@ -30,12 +21,18 @@ namespace sm {
     template<ArithmeticOrComplex T>
     class SMArray {
     public:
-        SMArray() {
-        }
-
         SMArray(const std::initializer_list<T> &list);
 
         SMArray(const std::initializer_list<SMArray> &list);
+
+        SMArray(T *data, std::vector<size_t> &&shape) {
+            this->shape = std::move(shape);
+            ndim = this->shape.size();
+            this->data = data;
+            this->totalSize = calculateTotalSize(this->shape);
+            calculateStride();
+        };
+
 
         // Move constructor
         SMArray(SMArray &&other) noexcept {
@@ -80,6 +77,13 @@ namespace sm {
             return accessByValueRef(indices);
         }
 
+        SMArray transpose() const;
+
+        SMArray repeat(int numberOfRepeats) const;
+
+        SMArray repeat(int numberOfRepeats, int axis) const;
+
+        std::string toString() const;
 
         ~SMArray() {
             if (!isView) {
@@ -95,13 +99,8 @@ namespace sm {
         size_t ndim = 0;
         bool isView = false;
 
-        SMArray(T *data, std::vector<size_t> &&shape) {
-            this->shape = std::move(shape);
-            this->data = data;
-            this->totalSize = calculateTotalSize(this->shape);
-            calculateStride();
-            isView = true;
-        };
+        //Used for internal use only.
+        SMArray() = default;
 
         void calculateStride();
 
