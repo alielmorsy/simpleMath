@@ -272,7 +272,7 @@ SMArray<T> SMArray<T>::repeat(int numberOfRepeats) {
     T *newData = static_cast<T *>(malloc(sizeof(T) * newTotalSize));
     for (int i = 0; i < totalSize; i++) {
         for (int j = 0; j < numberOfRepeats; ++j) {
-            newData[i + j] = this->data[i];
+                newData[i + j] = this->data[i];
         }
 
     }
