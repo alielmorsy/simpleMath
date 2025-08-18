@@ -4,9 +4,14 @@
 #include <functional>
 #include <type_traits>
 #include <vector>
-#include <Slice.h>
+#include <cstring>
 
+#include <Slice.h>
 #include <SMUtils.h>
+#include <math/product.h>
+#include <math/add.h>
+#include <math/minus.h>
+
 #define SLICE(start,end) Slice(start,end)
 #define SLICE_START(start) SLICE(start,-1)
 #define SLICE_END(end) SLICE(0,end)
@@ -25,10 +30,10 @@ namespace sm {
     class SMArray {
     public:
         SMArray(const std::initializer_list<T> &list) {
-            shape.resize(1);
-            strides.resize(1);
-            shape[0] = list.size();
-            strides[0] = 1;
+            _shape.resize(1);
+            _strides.resize(1);
+            _shape[0] = list.size();
+            _strides[0] = 1;
             data = new T[list.size()];
             memcpy(data, list.begin(), sizeof(T) * list.size());
             totalSize = list.size();
@@ -38,15 +43,15 @@ namespace sm {
         SMArray(const std::initializer_list<SMArray> &list) {
             int ndim = 1;
             const SMArray<T> &arr = *list.begin();
-            size_t childNdim = arr.shape.size();
-            this->shape.resize(childNdim + 1);
-            this->shape[0] = list.size();
+            size_t childNdim = arr._shape.size();
+            this->_shape.resize(childNdim + 1);
+            this->_shape[0] = list.size();
 
             for (int i = 0; i < childNdim; ++i) {
-                this->shape[ndim] = arr.shape[i];
+                this->_shape[ndim] = arr._shape[i];
                 ndim++;
             }
-            const size_t totalSize = this->totalSize = calculateTotalSize(this->shape);
+            const size_t totalSize = this->totalSize = calculateTotalSize(this->_shape);
             this->data = new T[totalSize];
             size_t copiedData = 0;
             for (int i = 0; i < list.size(); ++i) {
@@ -59,10 +64,10 @@ namespace sm {
         }
 
         SMArray(T *data, std::vector<size_t> &&shape) {
-            this->shape = std::move(shape);
-            ndim = this->shape.size();
+            this->_shape = std::move(shape);
+            ndim = this->_shape.size();
             this->data = data;
-            this->totalSize = calculateTotalSize(this->shape);
+            this->totalSize = calculateTotalSize(this->_shape);
             calculateStride();
         };
 
@@ -70,17 +75,17 @@ namespace sm {
         // Move constructor
         SMArray(SMArray &&other) noexcept {
             data = other.data;
-            shape = std::move(other.shape);
-            strides = std::move(other.strides);
+            _shape = std::move(other._shape);
+            _strides = std::move(other._strides);
             totalSize = other.totalSize;
             ndim = other.ndim;
             other.data = nullptr;
         }
 
         SMArray &operator=(const SMArray &&other) {
-            assert(shape.size() == other.shape.size() && "Shape mismatch in assignment");
-            for (int i = 0; i < shape.size(); ++i) {
-                assert(shape[i]==other.shape[i] && "Shape mismatch in assignment");
+            assert(_shape.size() == other._shape.size() && "Shape mismatch in assignment");
+            for (int i = 0; i < _shape.size(); ++i) {
+                assert(_shape[i]==other._shape[i] && "Shape mismatch in assignment");
             }
             for (size_t i = 0; i < totalSize; ++i)
                 data[i] = other.data[i];
@@ -114,14 +119,14 @@ namespace sm {
             std::vector<size_t> newShape(ndim);
             std::vector<size_t> newStrides(ndim);
             for (int i = 0, j = ndim - 1; i < ndim; ++i, --j) {
-                newShape[j] = shape[i];
-                newStrides[j] = strides[i];
+                newShape[j] = _shape[i];
+                newStrides[j] = _strides[i];
             }
             SMArray arr;
             arr.data = data;
             arr.isView = true;
-            arr.shape = std::move(newShape);
-            arr.strides = std::move(newStrides);
+            arr._shape = std::move(newShape);
+            arr._strides = std::move(newStrides);
             arr.ndim = ndim;
             return arr;
         }
@@ -141,8 +146,8 @@ namespace sm {
 
             SMArray arr;
             arr.data = newData;
-            arr.shape = {newTotalSize};
-            arr.strides = {1};
+            arr._shape = {newTotalSize};
+            arr._strides = {1};
             arr.ndim = 1;
             arr.isView = false;
             return arr;
@@ -154,13 +159,13 @@ namespace sm {
                 return repeat(numberOfRepeats);
             }
 
-            std::vector<size_t> newShape = shape;
+            std::vector<size_t> newShape = _shape;
             newShape[axis] *= numberOfRepeats;
 
 
             size_t blockSize = 1, previousAxisVal = 0;
             for (size_t i = axis + 1; i < ndim; ++i) {
-                blockSize *= shape[i];
+                blockSize *= _shape[i];
             }
 
             size_t newTotalSize = totalSize * numberOfRepeats;
@@ -168,15 +173,15 @@ namespace sm {
             T *originalPointer = newData;
             size_t toCopy = 1;
             for (int i = axis + 1; i < this->ndim; ++i) {
-                toCopy *= this->shape[i];
+                toCopy *= this->_shape[i];
             }
             std::vector<size_t> indices(ndim);
 
             for (size_t i = 0, k = 0; i < this->totalSize; ++i, ++k) {
                 auto reminder = i;
                 for (int j = this->ndim - 1; j >= 0; --j) {
-                    indices[j] = reminder % this->shape[j];
-                    reminder = reminder / this->shape[j];
+                    indices[j] = reminder % this->_shape[j];
+                    reminder = reminder / this->_shape[j];
                 }
                 if (indices[axis] != previousAxisVal) {
                     for (int j = 1; j <= numberOfRepeats - 1; ++j) {
@@ -200,7 +205,19 @@ namespace sm {
             return arr;
         }
 
-        std::string toString() const {
+        T operator%(SMArray &arr) {
+            return dot_product(data, arr.data, arr.totalSize);
+        }
+
+        SMArray operator+(SMArray &arr) {
+            return add_arrays(data, arr.data, arr.totalSize);
+        }
+
+        SMArray operator-(SMArray &arr) {
+            return subtract_arrays(data, arr.data, arr.totalSize);
+        }
+
+        [[nodiscard]] std::string toString() const {
             std::ostringstream oss;
             std::function<void(size_t, size_t)> printRecursive;
 
@@ -208,17 +225,17 @@ namespace sm {
                 if (dim == ndim - 1) {
                     // Last dimension: print elements
                     oss << "[";
-                    for (size_t i = 0; i < shape[dim]; ++i) {
+                    for (size_t i = 0; i < _shape[dim]; ++i) {
                         if (i > 0) oss << ", ";
-                        oss << data[offset + i * strides[dim]];
+                        oss << data[offset + i * _strides[dim]];
                     }
                     oss << "]";
                 } else {
                     // Higher dimensions: recurse
                     oss << "[";
-                    for (size_t i = 0; i < shape[dim]; ++i) {
+                    for (size_t i = 0; i < _shape[dim]; ++i) {
                         if (i > 0) oss << ",\n"; // newline for readability
-                        printRecursive(offset + i * strides[dim], dim + 1);
+                        printRecursive(offset + i * _strides[dim], dim + 1);
                     }
                     oss << "]";
                 }
@@ -226,6 +243,14 @@ namespace sm {
 
             printRecursive(0, 0);
             return oss.str();
+        }
+
+        [[nodiscard]] const std::vector<size_t> &shape() const {
+            return _shape;
+        }
+
+        [[nodiscard]] const std::vector<size_t> &strides() const {
+            return _strides;
         }
 
         ~SMArray() {
@@ -236,8 +261,8 @@ namespace sm {
 
     private:
         T *data = nullptr;
-        std::vector<size_t> shape;
-        std::vector<size_t> strides;
+        std::vector<size_t> _shape;
+        std::vector<size_t> _strides;
         size_t totalSize = 0;
         size_t ndim = 0;
         bool isView = false;
@@ -247,38 +272,34 @@ namespace sm {
 
         void calculateStride() {
             size_t currentStride = 1;
-            strides.resize(ndim);
+            _strides.resize(ndim);
             for (int i = ndim - 1; i >= 0; --i) {
-                strides[i] = currentStride;
-                currentStride *= shape[i];
+                _strides[i] = currentStride;
+                currentStride *= _shape[i];
             }
         }
 
         T accessByValue(const std::initializer_list<std::size_t> &indices) const {
-            // Make sure number of indices matches number of dimensions
             assert(indices.size() <= ndim && "Number of indices exceeds number of dimensions");
 
             T *p = data;
             int strideIndex = 0;
             for (auto index: indices) {
-                // Check that the index is within bounds for this dimension
                 assert(index < shape[strideIndex] && "Index out of bounds");
-                p += index * this->strides[strideIndex];
+                p += index * this->_strides[strideIndex];
                 strideIndex++;
             }
             return *p;
         }
 
         T &accessByValueRef(const std::initializer_list<std::size_t> &indices) const {
-            // Make sure number of indices matches number of dimensions
             assert(indices.size() <= ndim && "Number of indices exceeds number of dimensions");
 
             T *p = data;
             int strideIndex = 0;
             for (auto index: indices) {
-                // Check that the index is within bounds for this dimension
-                assert(index < shape[strideIndex] && "Index out of bounds");
-                p += index * this->strides[strideIndex];
+                assert(index < _shape[strideIndex] && "Index out of bounds");
+                p += index * this->_strides[strideIndex];
                 strideIndex++;
             }
             return *p;
@@ -293,12 +314,12 @@ namespace sm {
             for (auto &slice: slices) {
                 auto start = slice.start;
                 auto end = slice.end;
-                p += start * this->strides[index];
+                p += start * this->_strides[index];
                 if (slice.sliceType == Slice::INDEX) {
                     newShape[index] = 0;
                 } else {
                     if (end == -1) {
-                        end = this->shape[index];
+                        end = this->_shape[index];
                     }
                     newShape[index] = end - start;
                 }
@@ -307,7 +328,7 @@ namespace sm {
 
             for (int i = 0; i < this->ndim; ++i) {
                 if (i >= slices.size()) {
-                    tmpShape.push_back(this->shape[i]);
+                    tmpShape.push_back(this->_shape[i]);
                     continue;
                 }
                 if (newShape[i] == 0) {
