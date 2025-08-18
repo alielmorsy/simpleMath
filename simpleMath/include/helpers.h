@@ -1,7 +1,6 @@
 #pragma once
 #include "SMArray.h"
 
-
 namespace sm {
     template<typename T, typename... Args>
     SMArray<T> empty(Args... args) {
