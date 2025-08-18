@@ -32,3 +32,11 @@ namespace sm {
         return {data, std::move(shape)};
     }
 }
+
+/**
+ * A simple overload
+ */
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const sm::SMArray<T> &b) {
+    return os << b.toString();
+}

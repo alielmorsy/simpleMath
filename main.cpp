@@ -3,11 +3,13 @@
 #include <cassert>
 #include <sm.h>
 
+
+
 int main() {
     auto ones = sm::ones<int>(3, 3);
     ones(1, 1) = 100;
     auto repeated = ones.repeat(3, 0);
-    std::cout << "repeated = " << repeated.toString() << "\n\n";
+    std::cout << "repeated = " << repeated << "\n\n";
     std::cout << "=== SMArray Nested Initializer List Tests ===\n\n";
 
     // Test 1: 1D array
