@@ -2,7 +2,7 @@
 template<std::integral T>
 Slice processIndex(T index) {
     auto slice = Slice(index, -1);
-    slice.sliceType=Slice::INDEX;
+    slice.sliceType = Slice::INDEX;
     return slice;
 }
 

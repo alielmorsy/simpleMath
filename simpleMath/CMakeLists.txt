@@ -3,6 +3,6 @@ set(SOURCE
 
 )
 
-add_library(sm ${SOURCE})
+add_library(sm INTERFACE)
 
-target_include_directories(sm PUBLIC "../include")
+target_include_directories(sm INTERFACE "include")
