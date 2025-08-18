@@ -2,14 +2,40 @@
 #include <complex>
 #include <cassert>
 #include <sm.h>
+#include <chrono>
 
+#ifdef _MSC_VER
+#include <windows.h>
 
+#define TIC(label) \
+LARGE_INTEGER label##_start, label##_freq; \
+QueryPerformanceFrequency(&label##_freq); \
+QueryPerformanceCounter(&label##_start);
 
+#define TOC(label) \
+do { \
+LARGE_INTEGER label##_end; \
+QueryPerformanceCounter(&label##_end); \
+double label##_elapsed_us = (label##_end.QuadPart - label##_start.QuadPart) * 1e6 / label##_freq.QuadPart; \
+std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
+} while (0)
+#else
+#define TIC(label)
+#define TOC(label)
+#endif
 int main() {
-    auto ones = sm::ones<int>(3, 3);
-    ones(1, 1) = 100;
-    auto repeated = ones.repeat(3, 0);
-    std::cout << "repeated = " << repeated << "\n\n";
+    auto one = sm::ones<float>(3, 1, 4);
+    auto two = sm::ones<float>(1, 5, 1);
+    auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
+    auto ones = sm::ones<float>(1000000);
+    ones(1) = 100;
+    ones(100) = 100.14134324;
+    TIC(mytest);
+    auto result = ones % ones;
+    TOC(mytest);
+    std::cout << "Dot Product = " << result << std::endl;
+    //auto repeated = ones.repeat(3, 0);
+    //std::cout << "repeated = " << repeated << "\n\n";
     std::cout << "=== SMArray Nested Initializer List Tests ===\n\n";
 
     // Test 1: 1D array
