@@ -18,22 +18,35 @@ LARGE_INTEGER label##_end; \
 QueryPerformanceCounter(&label##_end); \
 double label##_elapsed_us = (label##_end.QuadPart - label##_start.QuadPart) * 1e6 / label##_freq.QuadPart; \
 std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
-} while (0)
-#else
-#define TIC(label)
-#define TOC(label)
+} while(0)
+
+#else // Linux / GCC
+#include <time.h>
+#define TIC(label) \
+struct timespec label##_start; \
+clock_gettime(CLOCK_MONOTONIC, &label##_start);
+
+#define TOC(label) \
+do { \
+struct timespec label##_end; \
+clock_gettime(CLOCK_MONOTONIC, &label##_end); \
+double label##_elapsed_us = (label##_end.tv_sec - label##_start.tv_sec) * 1e6 + \
+(label##_end.tv_nsec - label##_start.tv_nsec) / 1e3; \
+std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
+} while(0)
+
 #endif
 int main() {
-    auto one = sm::ones<float>(3, 1, 4);
-    auto two = sm::ones<float>(1, 5, 1);
+    auto one = sm::ones<float>(10000); // A (1000x bigger)
+    auto two = sm::ones<float>(10000); // B (1000x bigger)
+
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
-    auto ones = sm::ones<float>(1000000);
-    ones(1) = 100;
-    ones(100) = 100.14134324;
     TIC(mytest);
-    auto result = ones % ones;
+    auto result_add = one + two;
     TOC(mytest);
-    std::cout << "Dot Product = " << result << std::endl;
+    // std::cout << "one = " << one << std::endl << std::endl;
+    // std::cout << "two = " << two << std::endl << std::endl;
+    //std::cout << "Result = " << result_add << std::endl;
     //auto repeated = ones.repeat(3, 0);
     //std::cout << "repeated = " << repeated << "\n\n";
     std::cout << "=== SMArray Nested Initializer List Tests ===\n\n";

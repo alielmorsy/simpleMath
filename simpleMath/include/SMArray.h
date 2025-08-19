@@ -210,7 +210,12 @@ namespace sm {
         }
 
         SMArray operator+(SMArray &arr) {
-            return add_arrays(data, arr.data, arr.totalSize);
+            auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
+            T *result = new T[broadcastResult.totalSize];
+            add_arrays(data, broadcastResult.newStrides1, arr.data, broadcastResult.newStrides2,
+                       broadcastResult.totalSize, result, broadcastResult.resultShape);
+
+            return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
         SMArray operator-(SMArray &arr) {
