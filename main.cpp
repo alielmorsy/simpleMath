@@ -37,13 +37,14 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 
 #endif
 int main() {
-    auto one = sm::ones<int>(10000); // A (1000x bigger)
-    auto two = sm::ones<int>(10000); // B (1000x bigger)
+    auto one = sm::ones<int>(10'000'000); // A (1000x bigger)
+    auto two = sm::ones<int>(10'000'000); // B (1000x bigger)
 
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
 
     auto result_add = one + two;
 
+    //std::cout << (one + two) << std::endl;
 
     // Measure the time for summing 10 times
     double total_time = 0.0;
