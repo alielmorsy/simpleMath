@@ -97,7 +97,7 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
             size_t simd_end = (inner_size / simd_width) * simd_width;
 
             // Main SIMD loop for inner dimension
-#pragma omp parallel for if(simd_end > 500000) schedule(static, 500000)
+#pragma omp parallel for if(simd_end > 500000) schedule(static, 100000)
             for (int j = 0; j < simd_end; j += simd_width) {
 #if defined(__AVX512F__)
                 simd_type va = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(src_a + j));
