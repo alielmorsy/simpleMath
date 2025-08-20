@@ -29,6 +29,8 @@ namespace sm {
     template<ArithmeticOrComplex T>
     class SMArray {
     public:
+        T *data = nullptr;
+        size_t totalSize = 0;
         SMArray(const std::initializer_list<T> &list) {
             _shape.resize(1);
             _strides.resize(1);
@@ -265,10 +267,8 @@ namespace sm {
         }
 
     private:
-        T *data = nullptr;
         std::vector<size_t> _shape;
         std::vector<size_t> _strides;
-        size_t totalSize = 0;
         size_t ndim = 0;
         bool isView = false;
 

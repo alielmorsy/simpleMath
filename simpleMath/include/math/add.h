@@ -19,11 +19,9 @@ void add_arrays(const T *a, const std::vector<size_t> &stride_a,
             reinterpret_cast<const int32_t *>(b), stride_b,
             n,
             reinterpret_cast<int32_t *>(result), shape);
-    }else {
+    } else {
         static_assert(false, "Sorry but unsupported for now");
     }
-
-
 }
 
 // ============================================================
@@ -51,8 +49,8 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
     std::vector<size_t> shape_products(ndim);
 
     // Calculate broadcasting flags and cumulative products for fast indexing
-    size_t product = 1;
     if (ndim > 1) {
+        size_t product = 1;
         for (int d = ndim - 1; d >= 0; --d) {
             broadcast_a[d] = stride_a[d] == 0;
             broadcast_b[d] = stride_b[d] == 0;
@@ -69,242 +67,67 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
             product *= shape[d];
         }
     }
-
-    // Strategy 1: Innermost dimension is contiguous and not broadcasted
-    if (ndim == 1 || (!broadcast_a[ndim - 1] && !broadcast_b[ndim - 1] && stride_a[ndim - 1] == 1 && stride_b[ndim - 1]
-                      == 1)) {
-        size_t inner_size = shape[ndim - 1];
-        size_t outer_iterations = n / inner_size;
-        for (size_t outer = 0; outer < outer_iterations; ++outer) {
-            // Calculate base offsets for outer dimensions
-            size_t base_offset_a = 0, base_offset_b = 0;
-            size_t temp = outer;
-
-            // Process dimensions from second-to-last to first
-            for (int d = ndim - 2; d >= 0; --d) {
-                size_t idx = temp % shape[d];
-                temp /= shape[d];
-
-                if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-            }
-
-            // SIMD process inner dimension
-            const int32_t *src_a = a + base_offset_a;
-            const int32_t *src_b = b + base_offset_b;
-            int32_t *dst = result + outer * inner_size;
-
-            size_t simd_end = (inner_size / simd_width) * simd_width;
-
-            // Main SIMD loop for inner dimension
-#pragma omp parallel for if(simd_end > 500000) schedule(static, 100000)
-            for (int j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                simd_type va = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(src_a + j));
-                simd_type vb = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(src_b + j));
-                simd_type vres = _mm512_add_epi32(va, vb);
-                _mm512_storeu_si512(reinterpret_cast<simd_type*>(dst + j), vres);
-#elif defined(__AVX2__)
-                simd_type va = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_a + j));
-                simd_type vb = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_b + j));
-                simd_type vres = _mm256_add_epi32(va, vb);
-                _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vres);
-#else
-                simd_type va = _mm_loadu_si128(reinterpret_cast<const simd_type*>(src_a + j));
-                simd_type vb = _mm_loadu_si128(reinterpret_cast<const simd_type*>(src_b + j));
-                simd_type vres = _mm_add_epi32(va, vb);
-                _mm_storeu_si128(reinterpret_cast<simd_type*>(dst + j), vres);
-#endif
-            }
-
-            // Scalar cleanup for inner dimension
-            for (size_t j = simd_end; j < inner_size; ++j) {
-                dst[j] = src_a[j] + src_b[j];
-            }
-        }
-
-        i = n; // Mark as fully processed
+    size_t offset_step_a[5];
+    size_t offset_step_b[5];
+    for (int d = 0; d < ndim; d++) {
+        offset_step_a[d] = broadcast_a[d] ? 0 : stride_a[d];
+        offset_step_b[d] = broadcast_b[d] ? 0 : stride_b[d];
     }
-
-    // Strategy 2: Broadcasting on innermost dimension - use SIMD with broadcast
-    else if (broadcast_a[ndim - 1] || broadcast_b[ndim - 1]) {
-        size_t inner_size = shape[ndim - 1];
-        size_t outer_iterations = n / inner_size;
-
-        for (size_t outer = 0; outer < outer_iterations; ++outer) {
-            size_t base_offset_a = 0, base_offset_b = 0;
-            size_t temp = outer;
-
-            // Calculate offsets for outer dimensions
-            for (int d = ndim - 2; d >= 0; --d) {
-                size_t idx = temp % shape[d];
-                temp /= shape[d];
-
-                if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-            }
-
-            int32_t *dst = result + outer * inner_size;
-
-            // Handle different broadcasting scenarios
-            if (broadcast_a[ndim - 1] && !broadcast_b[ndim - 1]) {
-                // A is broadcasted (scalar), B is vector
-                int32_t scalar_a = a[base_offset_a];
-                const int32_t *vec_b = b + base_offset_b;
-
-#if defined(__AVX512F__)
-                simd_type va_broadcast = _mm512_set1_epi32(scalar_a);
-#elif defined(__AVX2__)
-                simd_type va_broadcast = _mm256_set1_epi32(scalar_a);
-#else
-                simd_type va_broadcast = _mm_set1_epi32(scalar_a);
-#endif
-
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    simd_type vb = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(vec_b + j));
-                    simd_type vres = _mm512_add_epi32(va_broadcast, vb);
-                    _mm512_storeu_si512(reinterpret_cast<simd_type*>(dst + j), vres);
-#elif defined(__AVX2__)
-                    simd_type vb = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(vec_b + j));
-                    simd_type vres = _mm256_add_epi32(va_broadcast, vb);
-                    _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vres);
-#else
-                    simd_type vb = _mm_loadu_si128(reinterpret_cast<const simd_type*>(vec_b + j));
-                    simd_type vres = _mm_add_epi32(va_broadcast, vb);
-                    _mm_storeu_si128(reinterpret_cast<simd_type*>(dst + j), vres);
-#endif
-                }
-
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = scalar_a + vec_b[j];
-                }
-            } else if (!broadcast_a[ndim - 1] && broadcast_b[ndim - 1]) {
-                // B is broadcasted (scalar), A is vector
-                const int32_t *vec_a = a + base_offset_a;
-                int32_t scalar_b = b[base_offset_b];
-
-#if defined(__AVX512F__)
-                simd_type vb_broadcast = _mm512_set1_epi32(scalar_b);
-#elif defined(__AVX2__)
-                simd_type vb_broadcast = _mm256_set1_epi32(scalar_b);
-#else
-                simd_type vb_broadcast = _mm_set1_epi32(scalar_b);
-#endif
-
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    simd_type va = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(vec_a + j));
-                    simd_type vres = _mm512_add_epi32(va, vb_broadcast);
-                    _mm512_storeu_si512(reinterpret_cast<simd_type*>(dst + j), vres);
-#elif defined(__AVX2__)
-                    simd_type va = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(vec_a + j));
-                    simd_type vres = _mm256_add_epi32(va, vb_broadcast);
-                    _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vres);
-#else
-                    simd_type va = _mm_loadu_si128(reinterpret_cast<const simd_type*>(vec_a + j));
-                    simd_type vres = _mm_add_epi32(va, vb_broadcast);
-                    _mm_storeu_si128(reinterpret_cast<simd_type*>(dst + j), vres);
-#endif
-                }
-
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = vec_a[j] + scalar_b;
-                }
-            } else {
-                // Both broadcasted - fill with same value
-                int32_t scalar_a = a[base_offset_a];
-                int32_t scalar_b = b[base_offset_b];
-                int32_t sum = scalar_a + scalar_b;
-
-#if defined(__AVX512F__)
-                simd_type vsum = _mm512_set1_epi32(sum);
-#elif defined(__AVX2__)
-                simd_type vsum = _mm256_set1_epi32(sum);
-#else
-                simd_type vsum = _mm_set1_epi32(sum);
-#endif
-
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    _mm512_storeu_si512(reinterpret_cast<simd_type*>(dst + j), vsum);
-#elif defined(__AVX2__)
-                    _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vsum);
-#else
-                    _mm_storeu_si128(reinterpret_cast<simd_type*>(dst + j), vsum);
-#endif
-                }
-
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = sum;
-                }
-            }
-        }
-
-        i = n; // Mark as fully processed
-    }
-
-    // Strategy 3: Look for other vectorizable patterns
     // Check if any contiguous dimension > simd_width can be vectorized
-    if (i < n) {
-        for (int dim = ndim - 1; dim >= 0; --dim) {
-            if (!broadcast_a[dim] && !broadcast_b[dim] &&
-                stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim] &&
-                shape[dim] >= simd_width) {
-                // Found a vectorizable dimension
-                size_t chunk_size = shape[dim];
-                size_t num_chunks = n / chunk_size;
+    for (int dim = ndim - 1; dim >= 0; --dim) {
+        if (!broadcast_a[dim] && !broadcast_b[dim] &&
+            stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim] &&
+            shape[dim] >= simd_width) {
+            // Found a vectorizable dimension
+            size_t chunk_size = shape[dim];
+            size_t num_chunks = n / chunk_size;
 
-                for (size_t chunk = 0; chunk < num_chunks; ++chunk) {
-                    size_t base_offset_a = 0, base_offset_b = 0;
-                    size_t temp = chunk;
+            for (size_t chunk = 0; chunk < num_chunks; ++chunk) {
+                size_t base_offset_a = 0, base_offset_b = 0;
+                size_t temp = chunk;
 
-                    // Calculate base offset excluding the vectorizable dimension
-                    for (int d = dim - 1; d >= 0; --d) {
-                        size_t idx = temp % shape[d];
-                        temp /= shape[d];
+                // Calculate base offset excluding the vectorizable dimension
+                for (int d = dim - 1; d >= 0; --d) {
+                    size_t idx = temp % shape[d];
+                    temp /= shape[d];
 
-                        if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                        if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-                    }
+                    base_offset_a += idx * offset_step_a[d];
+                    base_offset_b += idx * offset_step_b[d];
+                }
 
 
-                    const int32_t *src_a = a + base_offset_a;
-                    const int32_t *src_b = b + base_offset_b;
-                    int32_t *dst = result + chunk * chunk_size;
+                const int32_t *src_a = a + base_offset_a;
+                const int32_t *src_b = b + base_offset_b;
+                int32_t *dst = result + chunk * chunk_size;
 
-                    size_t simd_end = (chunk_size / simd_width) * simd_width;
+                size_t simd_end = (chunk_size / simd_width) * simd_width;
 
-                    for (size_t j = 0; j < simd_end; j += simd_width) {
+                for (size_t j = 0; j < simd_end; j += simd_width) {
 #if defined(__AVX512F__)
                         simd_type va = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(src_a + j));
                         simd_type vb = _mm512_loadu_si512(reinterpret_cast<const simd_type*>(src_b + j));
                         simd_type vres = _mm512_add_epi32(va, vb);
                         _mm512_storeu_si512(reinterpret_cast<simd_type*>(dst + j), vres);
 #elif defined(__AVX2__)
-                        simd_type va = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_a + j));
-                        simd_type vb = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_b + j));
-                        simd_type vres = _mm256_add_epi32(va, vb);
-                        _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vres);
+                    simd_type va = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_a + j));
+                    simd_type vb = _mm256_loadu_si256(reinterpret_cast<const simd_type *>(src_b + j));
+                    simd_type vres = _mm256_add_epi32(va, vb);
+                    _mm256_storeu_si256(reinterpret_cast<simd_type *>(dst + j), vres);
 #else
                         simd_type va = _mm_loadu_si128(reinterpret_cast<const simd_type*>(src_a + j));
                         simd_type vb = _mm_loadu_si128(reinterpret_cast<const simd_type*>(src_b + j));
                         simd_type vres = _mm_add_epi32(va, vb);
                         _mm_storeu_si128(reinterpret_cast<simd_type*>(dst + j), vres);
 #endif
-                    }
-
-                    for (size_t j = simd_end; j < chunk_size; ++j) {
-                        dst[j] = src_a[j] + src_b[j];
-                    }
                 }
 
-                i = num_chunks * chunk_size;
-                break;
+                for (size_t j = simd_end; j < chunk_size; ++j) {
+                    dst[j] = src_a[j] + src_b[j];
+                }
             }
+
+            i = num_chunks * chunk_size;
+            break;
         }
     }
 
