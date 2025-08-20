@@ -19,10 +19,11 @@ void add_arrays(const T *a, const std::vector<size_t> &stride_a,
             reinterpret_cast<const int32_t *>(b), stride_b,
             n,
             reinterpret_cast<int32_t *>(result), shape);
-        return;
+    }else {
+        static_assert(false, "Sorry but unsupported for now");
     }
 
-    static_assert(false, "Sorry but unsupported for now");
+
 }
 
 // ============================================================

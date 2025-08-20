@@ -37,13 +37,33 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 
 #endif
 int main() {
-    auto one = sm::ones<float>(10000); // A (1000x bigger)
-    auto two = sm::ones<float>(10000); // B (1000x bigger)
+    auto one = sm::ones<int>(10000); // A (1000x bigger)
+    auto two = sm::ones<int>(10000); // B (1000x bigger)
 
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
-    TIC(mytest);
+
     auto result_add = one + two;
-    TOC(mytest);
+
+
+    // Measure the time for summing 10 times
+    double total_time = 0.0;
+    for (int run = 0; run < 10; ++run) {
+        auto start = std::chrono::high_resolution_clock::now();
+
+        auto res = one + two;
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::micro> diff = end - start;
+        std::cout << "Average time for iteration: " << run << " for vector sum: " << diff.count() << " microseconds\n";
+        total_time += diff.count();
+    }
+
+    double avg_time = total_time / 10.0;
+
+    std::cout << "Average time for vector sum: " << avg_time << " microseconds\n";
+    std::cout << "\n";
+
+    return 0;
     // std::cout << "one = " << one << std::endl << std::endl;
     // std::cout << "two = " << two << std::endl << std::endl;
     //std::cout << "Result = " << result_add << std::endl;
