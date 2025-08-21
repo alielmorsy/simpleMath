@@ -1,6 +1,12 @@
 #pragma once
 
 
+#define SLICE(start,end) Slice(start,end)
+#define SLICE_START(start) SLICE(start,-1)
+#define SLICE_END(end) SLICE(0,end)
+
+#define SLICE_ALL SLICE(0,-1)
+
 struct Slice {
     enum SliceStep {
         SINGLE_STEP = 0

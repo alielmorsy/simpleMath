@@ -36,9 +36,49 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 } while(0)
 
 #endif
-int main() {
+int main() { {
+        auto one = sm::ones<float>(32, 224, 224, 3);
+        std::cout << one(0, 221, 5, 0) << std::endl;
+        // Smaller array for broadcasting: shape (1, 224, 1, 3)
+        auto two = sm::zeros<float>(1, 224, 1, 3);
+        std::cout<<two.totalSize<<std::endl;
+        // Fill the smaller array with values using indexing
+        for (size_t i = 0; i < 224; i++) {
+            for (size_t c = 0; c < 3; c++) {
+                two(0, i, 0, c) = 3;
+            }
+        }
+
+        // Take a view along the first axis
+        auto view = one(0, SLICE_ALL);
+    std::cout << view(221, 5, 0) << std::endl;
+        std::vector<size_t> expectedShape = {224, 224, 3};
+        assert(view.shape()== expectedShape);
+
+        // Add the smaller array (broadcasting along axes 0 and 2)
+        auto result = view + two;
+        std::vector<size_t> resultShape = {1, 224, 224, 3};
+        assert(result.shape()==resultShape);
+
+        // Check some values to ensure broadcasting worked
+        for (size_t i = 0; i < 224; i++) {
+            for (size_t j = 0; j < 224; j++) {
+                for (size_t c = 0; c < 3; c++) {
+                    float expected = 4;
+                    std::stringstream ss;
+                    ss << "0," << i << "," << j << "," << c;
+                    std::string r = ss.str();
+                    if (result(0, i, j, c) != expected)
+                        std::cout << "Index: " << r << "! Result: " << result(0, i, j, c) << " Expected: " << expected
+                                <<
+                                std::endl;
+                    assert(result(0,i, j, c)== expected);
+                }
+            }
+        }
+    }
     auto one = sm::ones<float>(32, 224, 224, 3); // A (1000x bigger)
-    auto two = sm::ones<float>(32, 224, 224, 3); // B (1000x bigger)
+    auto two = sm::zeros<float>(1, 224, 1, 3); // B (1000x bigger)
     one(1, 2, 100, 0) = 3;
     two(1, 2, 100, 0) = 3;
 
@@ -59,6 +99,8 @@ int main() {
     one(6, 3, 30, 2) = 6;
     two(6, 3, 30, 2) = 3;
 
+    auto view = one(0, SLICE_ALL);
+
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
     auto c = one(0,SLICE_START(0, 0));
     auto result_add = one + two;
@@ -68,11 +110,11 @@ int main() {
     assert(result_add(1, 2, 100, 0) ==6&&"First check wrong");
     assert(result_add(2, 2, 100, 0) ==4&&"Second check wrong");
     // Assertions
-    assert(result_add(0, 0, 0, 0) == 7 && "Third check wrong");    // 2+5=7
-    assert(result_add(3, 1, 50, 2) == 8 && "Fourth check wrong");   // 7+1=8
-    assert(result_add(4, 2, 120, 1) == 10 && "Fifth check wrong");  // 8+2=10
-    assert(result_add(5, 0, 200, 0) == 5 && "Sixth check wrong");   // 1+4=5
-    assert(result_add(6, 3, 30, 2) == 9 && "Seventh check wrong");  // 6+3=9
+    assert(result_add(0, 0, 0, 0) == 7 && "Third check wrong"); // 2+5=7
+    assert(result_add(3, 1, 50, 2) == 8 && "Fourth check wrong"); // 7+1=8
+    assert(result_add(4, 2, 120, 1) == 10 && "Fifth check wrong"); // 8+2=10
+    assert(result_add(5, 0, 200, 0) == 5 && "Sixth check wrong"); // 1+4=5
+    assert(result_add(6, 3, 30, 2) == 9 && "Seventh check wrong"); // 6+3=9
     //std::cout << (one + two) << std::endl;
 
     // Measure the time for summing 10 times
@@ -80,7 +122,7 @@ int main() {
     for (int run = 0; run < 10; ++run) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        auto res = one + two;
+        auto res = view + two;
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> diff = end - start;

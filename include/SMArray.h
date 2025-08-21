@@ -11,10 +11,8 @@
 #include <math/product.h>
 #include <math/add.h>
 #include <math/substract.h>
+#include <math/calculate.h>
 
-#define SLICE(start,end) Slice(start,end)
-#define SLICE_START(start) SLICE(start,-1)
-#define SLICE_END(end) SLICE(0,end)
 
 namespace sm {
     // Concept for arithmetic or std::complex<arithmetic>
@@ -96,11 +94,11 @@ namespace sm {
         }
 
         template<typename... Args>
-           // requires ((std::is_integral_v<Args> || std::is_same_v<Args, Slice>) && ...)
+            requires ((std::is_integral_v<std::remove_cvref_t<Args> > || std::is_same_v<Args, Slice>) && ...)
         auto operator()(Args &&... args) const {
-            assert(num_args<=ndim && "Number of arguments should be less than number of dims");
+            //   assert(num_args<=ndim && "Number of arguments should be less than number of dims");
 
-            if constexpr ((std::is_integral_v<std::remove_cvref_t<Args>> && ...)) {
+            if constexpr ((std::is_integral_v<std::remove_cvref_t<Args> > && ...)) {
                 auto indices = {static_cast<std::size_t>(args)...};
                 return accessByValue(indices);
             } else {
@@ -111,7 +109,7 @@ namespace sm {
         }
 
         template<typename... Args>
-            requires ((std::is_integral_v<Args> && ...))
+            requires ((std::is_integral_v<std::remove_cvref_t<Args> > && ...))
         ALWAYS_INLINE T &operator()(Args &&... args) {
             auto indices = {static_cast<size_t>(args)...};
             return accessByValueRef(indices);
@@ -214,8 +212,9 @@ namespace sm {
         SMArray operator+(SMArray &arr) {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
-            add_arrays(data, broadcastResult.newStrides1, arr.data, broadcastResult.newStrides2,
-                       broadcastResult.totalSize, result, broadcastResult.resultShape);
+            apply_simd_element_wise_op<T, AddOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                                     broadcastResult.newStrides2,
+                                                     broadcastResult.totalSize, result, broadcastResult.resultShape);
 
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
@@ -292,9 +291,11 @@ namespace sm {
             assert(indices.size() <= ndim && "Number of indices exceeds number of dimensions");
 
             T *p = data;
+            size_t i = 0;
             int strideIndex = 0;
             for (auto index: indices) {
-                assert(index < shape[strideIndex] && "Index out of bounds");
+                assert(index < _shape[strideIndex] && "Index out of bounds");
+                i += index * this->_strides[strideIndex];
                 p += index * this->_strides[strideIndex];
                 strideIndex++;
             }
@@ -317,38 +318,42 @@ namespace sm {
         }
 
 
-        const SMArray accessByArray(std::initializer_list<Slice> &slices) const {
-            std::vector<size_t> newShape(slices.size());
-            std::vector<size_t> tmpShape;
+        const SMArray accessByArray(const std::initializer_list<Slice> &slices) const {
+            std::vector<size_t> newShape;
+            std::vector<size_t> newStrides;
             T *p = this->data;
-            size_t index = 0;
-            for (auto &slice: slices) {
-                auto start = slice.start;
-                auto end = slice.end;
-                p += start * this->_strides[index];
+            size_t ndim = this->ndim;
+
+            for (size_t i = 0; i < ndim; ++i) {
+                Slice slice = i < slices.size() ? *(slices.begin() + i) : Slice(0, -1);
+
                 if (slice.sliceType == Slice::INDEX) {
-                    newShape[index] = 0;
-                } else {
-                    if (end == -1) {
-                        end = this->_shape[index];
-                    }
-                    newShape[index] = end - start;
+                    // Move pointer, dimension disappears
+                    p += slice.start * this->_strides[i];
+                    continue;
                 }
-                index++;
+
+                // Determine end
+                int end = slice.end == -1 ? this->_shape[i] : slice.end;
+                int step = slice.step == 0 ? 1 : slice.step; // avoid zero step
+
+                // Adjust pointer for start
+                p += slice.start * this->_strides[i];
+
+                // Compute new shape along this axis
+                size_t dimSize = (std::abs(end - static_cast<int>(slice.start)) + std::abs(step) - 1) / std::abs(step);
+                newShape.push_back(dimSize);
+
+                // Compute new stride along this axis
+                newStrides.push_back(this->_strides[i] * step);
             }
 
-            for (int i = 0; i < this->ndim; ++i) {
-                if (i >= slices.size()) {
-                    tmpShape.push_back(this->_shape[i]);
-                    continue;
-                }
-                if (newShape[i] == 0) {
-                    continue;
-                }
-                tmpShape.push_back(newShape[i]);
-            }
-            SMArray arr{p, std::move(tmpShape)};
-            //To avoid clearing the memory
+            // Create the view array
+            SMArray arr;
+            arr.data = p;
+            arr.ndim = ndim;
+            arr._shape = std::move(newShape);
+            arr._strides = std::move(newStrides);
             arr.isView = true;
 
             return arr;

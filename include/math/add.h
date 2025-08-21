@@ -3,6 +3,110 @@
 #include <vector>
 #include "helpers.h"
 
+
+template<typename T>
+struct AddOp {
+    static T apply(const T &a, const T &b) {
+        return a + b;
+    }
+
+    // For SIMD operations
+    template<typename SIMD_T>
+    static SIMD_T apply_simd(const SIMD_T &a, const SIMD_T &b);
+};
+
+
+// SSE (__m128, 4 floats)
+template<>
+template<>
+inline __m128 AddOp<float>::apply_simd<__m128>(const __m128 &a, const __m128 &b) {
+    return _mm_add_ps(a, b);
+}
+
+// AVX/AVX2 (__m256, 8 floats)
+template<>
+template<>
+inline __m256 AddOp<float>::apply_simd<__m256>(const __m256 &a, const __m256 &b) {
+    return _mm256_add_ps(a, b);
+}
+
+// AVX-512 (__m512, 16 floats)
+template<>
+template<>
+inline __m512 AddOp<float>::apply_simd<__m512>(const __m512 &a, const __m512 &b) {
+    return _mm512_add_ps(a, b);
+}
+
+// ------------------- double -------------------
+
+// SSE2 (__m128d, 2 doubles)
+template<>
+template<>
+inline __m128d AddOp<double>::apply_simd<__m128d>(const __m128d &a, const __m128d &b) {
+    return _mm_add_pd(a, b);
+}
+
+// AVX (__m256d, 4 doubles)
+template<>
+template<>
+inline __m256d AddOp<double>::apply_simd<__m256d>(const __m256d &a, const __m256d &b) {
+    return _mm256_add_pd(a, b);
+}
+
+// AVX-512 (__m512d, 8 doubles)
+template<>
+template<>
+inline __m512d AddOp<double>::apply_simd<__m512d>(const __m512d &a, const __m512d &b) {
+    return _mm512_add_pd(a, b);
+}
+
+// ------------------- int32_t -------------------
+
+// SSE (__m128i, 4 int32)
+template<>
+template<>
+inline __m128i AddOp<int32_t>::apply_simd<__m128i>(const __m128i &a, const __m128i &b) {
+    return _mm_add_epi32(a, b);
+}
+
+// AVX2 (__m256i, 8 int32)
+template<>
+template<>
+inline __m256i AddOp<int32_t>::apply_simd<__m256i>(const __m256i &a, const __m256i &b) {
+    return _mm256_add_epi32(a, b);
+}
+
+// AVX-512 (__m512i, 16 int32)
+template<>
+template<>
+inline __m512i AddOp<int32_t>::apply_simd<__m512i>(const __m512i &a, const __m512i &b) {
+    return _mm512_add_epi32(a, b);
+}
+
+// ------------------- int64_t -------------------
+
+// SSE2 (__m128i, 2 int64)
+template<>
+template<>
+inline __m128i AddOp<int64_t>::apply_simd<__m128i>(const __m128i &a, const __m128i &b) {
+    return _mm_add_epi64(a, b);
+}
+
+// AVX2 (__m256i, 4 int64)
+template<>
+template<>
+inline __m256i AddOp<int64_t>::apply_simd<__m256i>(const __m256i &a, const __m256i &b) {
+    return _mm256_add_epi64(a, b);
+}
+
+// AVX-512 (__m512i, 8 int64)
+template<>
+template<>
+inline __m512i AddOp<int64_t>::apply_simd<__m512i>(const __m512i &a, const __m512i &b) {
+    return _mm512_add_epi64(a, b);
+}
+
+
 void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride_a,
                       const int32_t *b, const std::vector<size_t> &stride_b,
                       size_t n, int32_t *result, const std::vector<size_t> &shape);
@@ -67,9 +171,10 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
     }
     size_t offset_step_a[MAX_NDIM];
     size_t offset_step_b[MAX_NDIM];
-    CALCULATE_OFFSET_STEP
 
-    // Check if any contiguous dimension > simd_width can be vectorized
+
+            // Check if any contiguous dimension > simd_width can be vectorized
+
     for (int dim = ndim - 1; dim >= 0; --dim) {
         if (!broadcast_a[dim] && !broadcast_b[dim] &&
             stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim] &&
@@ -150,7 +255,7 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
 // ============================================================
 
 // Helper function for contiguous arrays (most common case)
-inline void add_contiguous_arrays(const float* a, const float* b, float* result, size_t n) {
+inline void add_contiguous_arrays(const float *a, const float *b, float *result, size_t n) {
     size_t i = 0;
 
     // Vectorized processing
@@ -183,17 +288,6 @@ inline void add_contiguous_arrays(const float* a, const float* b, float* result,
 }
 
 // Helper function to check if strides represent contiguous memory
-inline bool is_contiguous(const std::vector<size_t>& shape, const std::vector<size_t>& stride) {
-    if (shape.empty()) return true;
-
-    size_t expected_stride = 1;
-    for (int i = shape.size() - 1; i >= 0; --i) {
-        if (stride[i] != expected_stride) return false;
-        expected_stride *= shape[i];
-    }
-    return true;
-}
-
 
 
 template<>
@@ -203,7 +297,7 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
     const size_t ndim = shape.size();
 
     // Fast path: contiguous arrays (most common case)
-    if (ndim == 1 || (stride_a[ndim-1] == 1 && stride_b[ndim-1] == 1 &&
+    if (ndim == 1 || (stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1 &&
                       stride_a == stride_b && is_contiguous(shape, stride_a))) {
         add_contiguous_arrays(a, b, result, n);
         return;
@@ -221,7 +315,7 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
     }
 
     // Precompute products (same as before but cleaner)
-    prod_shape[ndim-1] = 1;
+    prod_shape[ndim - 1] = 1;
     for (int k = ndim - 2; k >= 0; --k) {
         prod_shape[k] = shape[k + 1] * prod_shape[k + 1];
     }
@@ -229,7 +323,7 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
     const bool can_vectorize = stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1;
 
     // Process in chunks for better vectorization and prefetching
-    constexpr size_t CHUNK_SIZE = 1024; // Tune based on cache size
+ //   constexpr size_t CHUNK_SIZE = 1024; // Tune based on cache size
     constexpr size_t PREFETCH_DISTANCE = 512; // bytes ahead to prefetch
     constexpr size_t PREFETCH_ELEMENTS = PREFETCH_DISTANCE / sizeof(float);
 
@@ -319,9 +413,6 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
 }
 
 
-
-
-
 // ============================================================
 // double specialization
 // ============================================================
@@ -349,9 +440,9 @@ inline void add_arrays<double>(const double *a, const std::vector<size_t> &strid
 
     size_t offset_step_a[MAX_NDIM];
     size_t offset_step_b[MAX_NDIM];
-    CALCULATE_OFFSET_STEP
 
-    // Calculate broadcasting flags and cumulative products for fast indexing
+            // Calculate broadcasting flags and cumulative products for fast indexing
+
     if (ndim > 1) {
         size_t product = 1;
         for (int d = ndim - 1; d >= 0; --d) {
