@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <omp.h>
+#include "helpers.h"
 
 void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride_a,
                       const int32_t *b, const std::vector<size_t> &stride_b,
@@ -45,7 +46,7 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
 #endif
 
     // Pre-compute broadcasting information and shape products
-    std::vector<bool> broadcast_a(ndim), broadcast_b(ndim);
+    std::vector<bool> broadcast_a(ndim, false), broadcast_b(ndim, false);
     std::vector<size_t> shape_products(ndim);
 
     // Calculate broadcasting flags and cumulative products for fast indexing
@@ -57,22 +58,20 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
 
             // Alternative: infer broadcasting from stride patterns
             if (d > 0) {
-                size_t expected_stride_a = shape[d] * stride_a[d];
-                size_t expected_stride_b = shape[d] * stride_b[d];
-                if (stride_a[d - 1] != expected_stride_a) broadcast_a[d - 1] = true;
-                if (stride_b[d - 1] != expected_stride_b) broadcast_b[d - 1] = true;
+                const size_t expected_stride_a = shape[d] * stride_a[d];
+                const size_t expected_stride_b = shape[d] * stride_b[d];
+                broadcast_a[d - 1] = stride_a[d - 1] != expected_stride_a;
+                broadcast_b[d - 1] = stride_b[d - 1] != expected_stride_b;
             }
 
             shape_products[d] = product;
             product *= shape[d];
         }
     }
-    size_t offset_step_a[5];
-    size_t offset_step_b[5];
-    for (int d = 0; d < ndim; d++) {
-        offset_step_a[d] = broadcast_a[d] ? 0 : stride_a[d];
-        offset_step_b[d] = broadcast_b[d] ? 0 : stride_b[d];
-    }
+    size_t offset_step_a[MAX_NDIM];
+    size_t offset_step_b[MAX_NDIM];
+    CALCULATE_OFFSET_STEP
+
     // Check if any contiguous dimension > simd_width can be vectorized
     for (int dim = ndim - 1; dim >= 0; --dim) {
         if (!broadcast_a[dim] && !broadcast_b[dim] &&
@@ -141,8 +140,8 @@ inline void add_arrays_int32(const int32_t *a, const std::vector<size_t> &stride
             size_t idx = temp % shape[d];
             temp /= shape[d];
 
-            if (!broadcast_a[d]) offset_a += idx * stride_a[d];
-            if (!broadcast_b[d]) offset_b += idx * stride_b[d];
+            offset_a += idx * offset_step_a[d];
+            offset_b += idx * offset_step_b[d];
         }
 
         result[i] = a[offset_a] + b[offset_b];
@@ -174,16 +173,13 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
     std::vector<bool> broadcast_a(ndim), broadcast_b(ndim);
     std::vector<size_t> shape_products(ndim);
 
-    size_t offset_step_a[5];
-    size_t offset_step_b[5];
-    for (int d = 0; d < ndim; d++) {
-        offset_step_a[d] = broadcast_a[d] ? 0 : stride_a[d];
-        offset_step_b[d] = broadcast_b[d] ? 0 : stride_b[d];
-    }
+    size_t offset_step_a[MAX_NDIM];
+    size_t offset_step_b[MAX_NDIM];
+    CALCULATE_OFFSET_STEP
 
     // Calculate broadcasting flags and cumulative products for fast indexing
     size_t product = 1;
-    if (ndim > 1) {
+    if (likely(ndim > 1)) {
         for (int d = ndim - 1; d >= 0; --d) {
             broadcast_a[d] = stride_a[d] == 0;
             broadcast_b[d] = stride_b[d] == 0;
@@ -192,8 +188,8 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
             if (d > 0) {
                 size_t expected_stride_a = shape[d] * stride_a[d];
                 size_t expected_stride_b = shape[d] * stride_b[d];
-                if (stride_a[d - 1] != expected_stride_a) broadcast_a[d - 1] = true;
-                if (stride_b[d - 1] != expected_stride_b) broadcast_b[d - 1] = true;
+                broadcast_a[d - 1] = stride_a[d - 1] != expected_stride_a;
+                broadcast_b[d - 1] = stride_b[d - 1] != expected_stride_b;
             }
 
             shape_products[d] = product;
@@ -201,14 +197,13 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
         }
     }
     for (int dim = ndim - 1; dim >= 0; --dim) {
-        if (!broadcast_a[dim] && !broadcast_b[dim] &&
-            stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim] &&
-            shape[dim] >= simd_width) {
+        if (likely(shape[dim] >= simd_width && !broadcast_a[dim] && !broadcast_b[dim] &&
+            stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim])) {
             // Found a vectorizable dimension
             size_t chunk_size = shape[dim];
             size_t num_chunks = n / chunk_size;
-
-            for (size_t chunk = 0; chunk < num_chunks; ++chunk) {
+#pragma omp parallel for if(num_chunks > 500000) schedule(static)
+            for (int chunk = 0; chunk < num_chunks; ++chunk) {
                 size_t base_offset_a = 0, base_offset_b = 0;
                 size_t temp = chunk;
 
@@ -226,7 +221,6 @@ inline void add_arrays<float>(const float *a, const std::vector<size_t> &stride_
                 float *dst = result + chunk * chunk_size;
 
                 size_t simd_end = (chunk_size / simd_width) * simd_width;
-
                 for (size_t j = 0; j < simd_end; j += simd_width) {
 #if defined(__AVX512F__)
                         simd_type va = _mm512_loadu_ps(src_a + j);
@@ -300,9 +294,13 @@ inline void add_arrays<double>(const double *a, const std::vector<size_t> &strid
     std::vector<bool> broadcast_a(ndim), broadcast_b(ndim);
     std::vector<size_t> shape_products(ndim);
 
+    size_t offset_step_a[MAX_NDIM];
+    size_t offset_step_b[MAX_NDIM];
+    CALCULATE_OFFSET_STEP
+
     // Calculate broadcasting flags and cumulative products for fast indexing
-    size_t product = 1;
     if (ndim > 1) {
+        size_t product = 1;
         for (int d = ndim - 1; d >= 0; --d) {
             broadcast_a[d] = stride_a[d] == 0;
             broadcast_b[d] = stride_b[d] == 0;
@@ -311,8 +309,8 @@ inline void add_arrays<double>(const double *a, const std::vector<size_t> &strid
             if (d > 0) {
                 size_t expected_stride_a = shape[d] * stride_a[d];
                 size_t expected_stride_b = shape[d] * stride_b[d];
-                if (stride_a[d - 1] != expected_stride_a) broadcast_a[d - 1] = true;
-                if (stride_b[d - 1] != expected_stride_b) broadcast_b[d - 1] = true;
+                broadcast_a[d - 1] = stride_a[d - 1] != expected_stride_a;
+                broadcast_b[d - 1] = stride_b[d - 1] != expected_stride_b;
             }
 
             shape_products[d] = product;
@@ -320,243 +318,63 @@ inline void add_arrays<double>(const double *a, const std::vector<size_t> &strid
         }
     }
 
-    // Strategy 1: Innermost dimension is contiguous and not broadcasted
-    if (ndim == 1 || (!broadcast_a[ndim - 1] && !broadcast_b[ndim - 1] && stride_a[ndim - 1] == 1 && stride_b[ndim - 1]
-                      == 1)) {
-        size_t inner_size = shape[ndim - 1];
-        size_t outer_iterations = n / inner_size;
-        for (size_t outer = 0; outer < outer_iterations; ++outer) {
-            // Calculate base offsets for outer dimensions
-            size_t base_offset_a = 0, base_offset_b = 0;
-            size_t temp = outer;
+    for (int dim = ndim - 1; dim >= 0; --dim) {
+        if (likely(shape[dim] >= simd_width && !broadcast_a[dim] && !broadcast_b[dim] &&
+            stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim])) {
+            size_t chunk_size = shape[dim];
+            size_t num_chunks = n / chunk_size;
+#pragma omp parallel for if(num_chunks > 500'000) schedule(static)
+            for (int chunk = 0; chunk < num_chunks; ++chunk) {
+                size_t base_offset_a = 0, base_offset_b = 0;
+                size_t temp = chunk;
 
-            // Process dimensions from second-to-last to first
-            for (int d = ndim - 2; d >= 0; --d) {
-                size_t idx = temp % shape[d];
-                temp /= shape[d];
+                // Calculate base offset excluding the vectorizable dimension
+                for (int d = dim - 1; d >= 0; --d) {
+                    size_t idx = temp % shape[d];
+                    temp /= shape[d];
 
-                if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-            }
-
-            // SIMD process inner dimension
-            const double *src_a = a + base_offset_a;
-            const double *src_b = b + base_offset_b;
-            double *dst = result + outer * inner_size;
-
-            size_t simd_end = (inner_size / simd_width) * simd_width;
-
-            // Main SIMD loop for inner dimension
-            for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                simd_type va = _mm512_loadu_pd(src_a + j);
-                simd_type vb = _mm512_loadu_pd(src_b + j);
-                simd_type vres = _mm512_add_pd(va, vb);
-                _mm512_storeu_pd(dst + j, vres);
-#elif defined(__AVX2__)
-                simd_type va = _mm256_loadu_pd(src_a + j);
-                simd_type vb = _mm256_loadu_pd(src_b + j);
-                simd_type vres = _mm256_add_pd(va, vb);
-                _mm256_storeu_pd(dst + j, vres);
-#else
-                simd_type va = _mm_loadu_pd(src_a + j);
-                simd_type vb = _mm_loadu_pd(src_b + j);
-                simd_type vres = _mm_add_pd(va, vb);
-                _mm_storeu_pd(dst + j, vres);
-#endif
-            }
-
-            // Scalar cleanup for inner dimension
-            for (size_t j = simd_end; j < inner_size; ++j) {
-                dst[j] = src_a[j] + src_b[j];
-            }
-        }
-
-        i = n; // Mark as fully processed
-    }
-
-    // Strategy 2: Broadcasting on innermost dimension - use SIMD with broadcast
-    else if (broadcast_a[ndim - 1] || broadcast_b[ndim - 1]) {
-        size_t inner_size = shape[ndim - 1];
-        size_t outer_iterations = n / inner_size;
-
-        for (size_t outer = 0; outer < outer_iterations; ++outer) {
-            size_t base_offset_a = 0, base_offset_b = 0;
-            size_t temp = outer;
-
-            // Calculate offsets for outer dimensions
-            for (int d = ndim - 2; d >= 0; --d) {
-                size_t idx = temp % shape[d];
-                temp /= shape[d];
-
-                if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-            }
-
-            double *dst = result + outer * inner_size;
-
-            // Handle different broadcasting scenarios
-            if (broadcast_a[ndim - 1] && !broadcast_b[ndim - 1]) {
-                // A is broadcasted (scalar), B is vector
-                double scalar_a = a[base_offset_a];
-                const double *vec_b = b + base_offset_b;
-
-#if defined(__AVX512F__)
-                simd_type va_broadcast = _mm512_set1_pd(scalar_a);
-#elif defined(__AVX2__)
-                simd_type va_broadcast = _mm256_set1_pd(scalar_a);
-#else
-                simd_type va_broadcast = _mm_set1_pd(scalar_a);
-#endif
-
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    simd_type vb = _mm512_loadu_pd(vec_b + j);
-                    simd_type vres = _mm512_add_pd(va_broadcast, vb);
-                    _mm512_storeu_pd(dst + j, vres);
-#elif defined(__AVX2__)
-                    simd_type vb = _mm256_loadu_pd(vec_b + j);
-                    simd_type vres = _mm256_add_pd(va_broadcast, vb);
-                    _mm256_storeu_pd(dst + j, vres);
-#else
-                    simd_type vb = _mm_loadu_pd(vec_b + j);
-                    simd_type vres = _mm_add_pd(va_broadcast, vb);
-                    _mm_storeu_pd(dst + j, vres);
-#endif
+                    base_offset_a += idx * offset_step_a[d];
+                    base_offset_b += idx * offset_step_b[d];
                 }
 
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = scalar_a + vec_b[j];
-                }
-            } else if (!broadcast_a[ndim - 1] && broadcast_b[ndim - 1]) {
-                // B is broadcasted (scalar), A is vector
-                const double *vec_a = a + base_offset_a;
-                double scalar_b = b[base_offset_b];
+                const double *src_a = a + base_offset_a;
+                const double *src_b = b + base_offset_b;
+                double *dst = result + chunk * chunk_size;
 
-#if defined(__AVX512F__)
-                simd_type vb_broadcast = _mm512_set1_pd(scalar_b);
-#elif defined(__AVX2__)
-                simd_type vb_broadcast = _mm256_set1_pd(scalar_b);
-#else
-                simd_type vb_broadcast = _mm_set1_pd(scalar_b);
-#endif
+                const int simd_end = (chunk_size / simd_width) * simd_width;
 
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    simd_type va = _mm512_loadu_pd(vec_a + j);
-                    simd_type vres = _mm512_add_pd(va, vb_broadcast);
-                    _mm512_storeu_pd(dst + j, vres);
-#elif defined(__AVX2__)
-                    simd_type va = _mm256_loadu_pd(vec_a + j);
-                    simd_type vres = _mm256_add_pd(va, vb_broadcast);
-                    _mm256_storeu_pd(dst + j, vres);
-#else
-                    simd_type va = _mm_loadu_pd(vec_a + j);
-                    simd_type vres = _mm_add_pd(va, vb_broadcast);
-                    _mm_storeu_pd(dst + j, vres);
-#endif
-                }
-
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = vec_a[j] + scalar_b;
-                }
-            } else {
-                // Both broadcasted - fill with same value
-                double scalar_a = a[base_offset_a];
-                double scalar_b = b[base_offset_b];
-                double sum = scalar_a + scalar_b;
-
-#if defined(__AVX512F__)
-                simd_type vsum = _mm512_set1_pd(sum);
-#elif defined(__AVX2__)
-                simd_type vsum = _mm256_set1_pd(sum);
-#else
-                simd_type vsum = _mm_set1_pd(sum);
-#endif
-
-                size_t simd_end = (inner_size / simd_width) * simd_width;
-                for (size_t j = 0; j < simd_end; j += simd_width) {
-#if defined(__AVX512F__)
-                    _mm512_storeu_pd(dst + j, vsum);
-#elif defined(__AVX2__)
-                    _mm256_storeu_pd(dst + j, vsum);
-#else
-                    _mm_storeu_pd(dst + j, vsum);
-#endif
-                }
-
-                for (size_t j = simd_end; j < inner_size; ++j) {
-                    dst[j] = sum;
-                }
-            }
-        }
-
-        i = n; // Mark as fully processed
-    }
-
-    // Strategy 3: Look for other vectorizable patterns
-    // Check if any contiguous dimension > simd_width can be vectorized
-    if (i < n) {
-        for (int dim = ndim - 1; dim >= 0; --dim) {
-            if (!broadcast_a[dim] && !broadcast_b[dim] &&
-                stride_a[dim] == shape_products[dim] && stride_b[dim] == shape_products[dim] &&
-                shape[dim] >= simd_width) {
-                // Found a vectorizable dimension
-                size_t chunk_size = shape[dim];
-                size_t num_chunks = n / chunk_size;
-
-                for (size_t chunk = 0; chunk < num_chunks; ++chunk) {
-                    size_t base_offset_a = 0, base_offset_b = 0;
-                    size_t temp = chunk;
-
-                    // Calculate base offset excluding the vectorizable dimension
-                    for (int d = dim - 1; d >= 0; --d) {
-                        size_t idx = temp % shape[d];
-                        temp /= shape[d];
-
-                        if (!broadcast_a[d]) base_offset_a += idx * stride_a[d];
-                        if (!broadcast_b[d]) base_offset_b += idx * stride_b[d];
-                    }
-
-                    const double *src_a = a + base_offset_a;
-                    const double *src_b = b + base_offset_b;
-                    double *dst = result + chunk * chunk_size;
-
-                    size_t simd_end = (chunk_size / simd_width) * simd_width;
-
-                    for (size_t j = 0; j < simd_end; j += simd_width) {
+                // We don't need to run parallel on the parent loop and this one
+#pragma omp parallel for if(simd_end > 500'000 && num_chunks <  500'000) schedule(static)
+                for (int j = 0; j < simd_end; j += simd_width) {
 #if defined(__AVX512F__)
                         simd_type va = _mm512_loadu_pd(src_a + j);
                         simd_type vb = _mm512_loadu_pd(src_b + j);
                         simd_type vres = _mm512_add_pd(va, vb);
                         _mm512_storeu_pd(dst + j, vres);
 #elif defined(__AVX2__)
-                        simd_type va = _mm256_loadu_pd(src_a + j);
-                        simd_type vb = _mm256_loadu_pd(src_b + j);
-                        simd_type vres = _mm256_add_pd(va, vb);
-                        _mm256_storeu_pd(dst + j, vres);
+                    simd_type va = _mm256_loadu_pd(src_a + j);
+                    simd_type vb = _mm256_loadu_pd(src_b + j);
+                    simd_type vres = _mm256_add_pd(va, vb);
+                    _mm256_storeu_pd(dst + j, vres);
 #else
                         simd_type va = _mm_loadu_pd(src_a + j);
                         simd_type vb = _mm_loadu_pd(src_b + j);
                         simd_type vres = _mm_add_pd(va, vb);
                         _mm_storeu_pd(dst + j, vres);
 #endif
-                    }
-
-                    for (size_t j = simd_end; j < chunk_size; ++j) {
-                        dst[j] = src_a[j] + src_b[j];
-                    }
                 }
 
-                i = num_chunks * chunk_size;
-                break;
+                for (size_t j = simd_end; j < chunk_size; ++j) {
+                    dst[j] = src_a[j] + src_b[j];
+                }
             }
+
+            i = num_chunks * chunk_size;
+            break;
         }
     }
 
-    // Fallback: Optimized scalar loop for remaining/complex cases
+    // Fallback
     for (; i < n; ++i) {
         size_t offset_a = 0, offset_b = 0;
         size_t temp = i;
@@ -566,8 +384,8 @@ inline void add_arrays<double>(const double *a, const std::vector<size_t> &strid
             size_t idx = temp % shape[d];
             temp /= shape[d];
 
-            if (!broadcast_a[d]) offset_a += idx * stride_a[d];
-            if (!broadcast_b[d]) offset_b += idx * stride_b[d];
+            offset_a += idx * offset_step_a[d];
+            offset_b += idx * offset_step_b[d];
         }
 
         result[i] = a[offset_a] + b[offset_b];

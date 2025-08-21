@@ -31,6 +31,7 @@ namespace sm {
     public:
         T *data = nullptr;
         size_t totalSize = 0;
+
         SMArray(const std::initializer_list<T> &list) {
             _shape.resize(1);
             _strides.resize(1);
@@ -112,7 +113,7 @@ namespace sm {
 
         template<typename... Args>
             requires ((std::is_integral_v<Args> && ...))
-        T &operator()(Args &&... args) {
+        ALWAYS_INLINE T &operator()(Args &&... args) {
             auto indices = {static_cast<size_t>(args)...};
             return accessByValueRef(indices);
         }
