@@ -49,22 +49,27 @@ namespace sm {
         size_t totalSize = 1;
         // Pad with 1s and 0 strides for missing dimensions
         for (size_t i = 0; i < maxNdim; ++i) {
-            if (i >= offset1) {
-                newShape1[i] = shape1[i - offset1];
-                newStrides1[i] = strides1[i - offset1];
-            } else {
+            // Handle Array 1
+            if (i < offset1) {
+                // Padded dimensions - size 1, stride 0
                 newShape1[i] = 1;
                 newStrides1[i] = 0;
+            } else {
+                // Original dimensions
+                newShape1[i] = shape1[i - offset1];
+                newStrides1[i] = strides1[i - offset1];
             }
 
-            if (i >= offset2) {
-                newShape2[i] = shape2[i - offset2];
-                newStrides2[i] = strides2[i - offset2];
-            } else {
+            // Handle Array 2
+            if (i < offset2) {
+                // Padded dimensions - size 1, stride 0
                 newShape2[i] = 1;
                 newStrides2[i] = 0;
+            } else {
+                // Original dimensions
+                newShape2[i] = shape2[i - offset2];
+                newStrides2[i] = strides2[i - offset2];
             }
-            // Calculate total size
             const size_t dim1 = newShape1[i];
             const size_t dim2 = newShape2[i];
 
@@ -82,7 +87,6 @@ namespace sm {
                 newStrides2[i] = 0;
             }
         }
-
 
         return BroadCastResult{
             .resultShape = std::move(resultShape),

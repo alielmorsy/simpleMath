@@ -26,7 +26,8 @@ namespace sm {
     SMArray<T> zeros(Args... args) {
         std::vector<size_t> shape = {static_cast<size_t>(args)...};
         size_t totalSize = calculateTotalSize(shape);
-        T *data = new T[totalSize]();
+        T *data = new T[totalSize];
+        std::fill_n(data, totalSize, 0);
         return {data, std::move(shape)};
     }
 }
