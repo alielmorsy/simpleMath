@@ -96,12 +96,11 @@ namespace sm {
         }
 
         template<typename... Args>
-            requires ((std::is_integral_v<Args> || std::is_same_v<Args, Slice>) && ...)
+           // requires ((std::is_integral_v<Args> || std::is_same_v<Args, Slice>) && ...)
         auto operator()(Args &&... args) const {
-            constexpr std::size_t num_args = sizeof...(Args);
             assert(num_args<=ndim && "Number of arguments should be less than number of dims");
 
-            if constexpr ((std::is_integral_v<Args> && ...)) {
+            if constexpr ((std::is_integral_v<std::remove_cvref_t<Args>> && ...)) {
                 auto indices = {static_cast<std::size_t>(args)...};
                 return accessByValue(indices);
             } else {
