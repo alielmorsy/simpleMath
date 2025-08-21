@@ -10,7 +10,7 @@
 #include <SMUtils.h>
 #include <math/product.h>
 #include <math/add.h>
-#include <math/minus.h>
+#include <math/substract.h>
 
 #define SLICE(start,end) Slice(start,end)
 #define SLICE_START(start) SLICE(start,-1)
@@ -222,7 +222,11 @@ namespace sm {
         }
 
         SMArray operator-(SMArray &arr) {
-            return subtract_arrays(data, arr.data, arr.totalSize);
+            auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
+            T *result = new T[broadcastResult.totalSize];
+            subtract_arrays(data, broadcastResult.newStrides1, arr.data, broadcastResult.newStrides2,
+                            broadcastResult.totalSize, result, broadcastResult.resultShape);
+            return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
         [[nodiscard]] std::string toString() const {
@@ -303,8 +307,10 @@ namespace sm {
 
             T *p = data;
             int strideIndex = 0;
+            size_t idx = 0;
             for (auto index: indices) {
                 assert(index < _shape[strideIndex] && "Index out of bounds");
+                idx += index * this->_strides[strideIndex];
                 p += index * this->_strides[strideIndex];
                 strideIndex++;
             }
