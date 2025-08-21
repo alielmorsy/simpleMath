@@ -1,6 +1,9 @@
 #pragma once
 
 template<typename T, typename Operation>
+void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n);
+
+template<typename T, typename Operation>
 void apply_simd_element_wise_op(const T *a, const std::vector<size_t> &stride_a,
                                 const T *b, const std::vector<size_t> &stride_b,
                                 size_t n, T *result, const std::vector<size_t> &shape) {
@@ -101,7 +104,7 @@ inline void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n
     // Vectorized processing
 #if defined(__AVX512F__)
     using simd = typename SimdTraits<T>::m512;
-    for (; i + 16 <= n; i += 16) {
+    for (; i + 16 <= n; i += SimdTraits<T>::simd_width) {
         simd va = SimdTraits<T>::load512(a + i);
         simd vb = SimdTraits<T>::load512(b + i);
         SimdTraits<T>::store512(result + i, Operation::apply_simd(va, vb));
@@ -109,7 +112,7 @@ inline void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n
 #endif
 #if defined(__AVX2__)
     using simd = typename SimdTraits<T>::m256;
-    for (; i + 8 <= n; i += 8) {
+    for (; i + 8 <= n; i += SimdTraits<T>::simd_width) {
         simd va = SimdTraits<T>::load256(a + i);
         simd vb = SimdTraits<T>::load256(b + i);
         SimdTraits<T>::store256(result + i, Operation::apply_simd(va, vb));
@@ -117,7 +120,7 @@ inline void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n
 #endif
 #if defined(__SSE__)
     using simd = typename SimdTraits<T>::m128;
-    for (; i + 4 <= n; i += 4) {
+    for (; i + 4 <= n; i += SimdTraits<T>::simd_width) {
         simd va = SimdTraits<T>::load128(a + i);
         simd vb = SimdTraits<T>::load128(b + i);
         SimdTraits<T>::store128(result + i, Operation::apply_simd(va, vb));

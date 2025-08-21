@@ -48,11 +48,11 @@ struct SimdTraits<double> {
     using m256 = __m256d;
     using m512 = __m512d;
 #ifdef __AVX512F__
-    static constexpr size_t simd_width = 16;
-#elif defined(__AVX2__)
     static constexpr size_t simd_width = 8;
-#else
+#elif defined(__AVX2__)
     static constexpr size_t simd_width = 4;
+#else
+    static constexpr size_t simd_width = 1;
 #endif
     static m128 load128(const double *ptr) { return _mm_loadu_pd(ptr); }
     static m256 load256(const double *ptr) { return _mm256_loadu_pd(ptr); }
