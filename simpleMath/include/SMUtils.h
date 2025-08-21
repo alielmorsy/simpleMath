@@ -1,4 +1,6 @@
 #pragma once
+#include "macros.h"
+
 namespace sm {
     struct BroadCastResult {
         std::vector<std::size_t> resultShape;
@@ -10,13 +12,13 @@ namespace sm {
     };
 
     template<std::integral T>
-    Slice processIndex(T index) noexcept {
+    ALWAYS_INLINE Slice processIndex(T index) noexcept {
         auto slice = Slice(index, -1);
         slice.sliceType = Slice::INDEX;
         return slice;
     }
 
-    inline Slice processIndex(Slice s) noexcept {
+    ALWAYS_INLINE Slice processIndex(Slice s) noexcept {
         return s;
     }
 

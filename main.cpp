@@ -37,8 +37,8 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 
 #endif
 int main() {
-    auto one = sm::ones<int>(1000,2,1000,10); // A (1000x bigger)
-    auto two = sm::ones<int>(1000,2,1000,10); // B (1000x bigger)
+    auto one = sm::ones<double>(32, 224, 224, 3); // A (1000x bigger)
+    auto two = sm::ones<double>(32, 224, 224, 3); // B (1000x bigger)
 
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
 
