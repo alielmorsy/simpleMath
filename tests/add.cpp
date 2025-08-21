@@ -45,15 +45,15 @@ TEST(SMArrayTest, Addition2DInt) {
 
 // 3D addition test
 TEST(SMArrayTest, Addition3D) {
-    sm::SMArray<float> arr3d = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
-    sm::SMArray<float> arr3d_b = {{{8, 7}, {6, 5}}, {{4, 3}, {2, 1}}};
+    sm::SMArray<double> arr3d = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
+    sm::SMArray<double> arr3d_b = {{{8, 7}, {6, 5}}, {{4, 3}, {2, 1}}};
 
-    sm::SMArray<float> result = arr3d + arr3d_b;
+    sm::SMArray<double> result = arr3d + arr3d_b;
 
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++)
             for (int k = 0; k < 2; k++)
-                EXPECT_EQ(result(i,j,k), arr3d(i,j,k) + arr3d_b(i,j,k));
+                EXPECT_DOUBLE_EQ(result(i,j,k), arr3d(i,j,k) + arr3d_b(i,j,k));
 }
 
 TEST(SMArrayTest, Broadcasting) {

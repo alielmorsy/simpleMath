@@ -2,7 +2,6 @@
 #include <immintrin.h>
 
 #include <complex>
-#include <cstddef>
 
 int32_t dot_product_int32(const int32_t *a, const int32_t *b, size_t n);
 

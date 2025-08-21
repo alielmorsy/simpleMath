@@ -13,6 +13,8 @@
 #include <math/subtract.h>
 #include <math/calculate.h>
 
+#include "math/multiply.h"
+
 
 namespace sm {
     // Concept for arithmetic or std::complex<arithmetic>
@@ -209,7 +211,7 @@ namespace sm {
             return dot_product(data, arr.data, arr.totalSize);
         }
 
-        SMArray operator+(SMArray &arr) {
+        SMArray operator+(const SMArray &arr) {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
             apply_simd_element_wise_op<T, AddOp<T> >(data, broadcastResult.newStrides1, arr.data,
@@ -219,10 +221,20 @@ namespace sm {
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
-        SMArray operator-(SMArray &arr) {
+        SMArray operator-(const SMArray &arr) {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
             apply_simd_element_wise_op<T, SubtractOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                                          broadcastResult.newStrides2,
+                                                          broadcastResult.totalSize, result,
+                                                          broadcastResult.resultShape);
+            return SMArray(result, std::move(broadcastResult.resultShape));
+        }
+
+        SMArray operator*(const SMArray &arr) {
+            auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
+            T *result = new T[broadcastResult.totalSize];
+            apply_simd_element_wise_op<T, MultiplyOp<T> >(data, broadcastResult.newStrides1, arr.data,
                                                           broadcastResult.newStrides2,
                                                           broadcastResult.totalSize, result,
                                                           broadcastResult.resultShape);
