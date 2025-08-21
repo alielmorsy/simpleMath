@@ -10,7 +10,7 @@
 #include <SMUtils.h>
 #include <math/product.h>
 #include <math/add.h>
-#include <math/substract.h>
+#include <math/subtract.h>
 #include <math/calculate.h>
 
 
@@ -222,8 +222,10 @@ namespace sm {
         SMArray operator-(SMArray &arr) {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
-            subtract_arrays(data, broadcastResult.newStrides1, arr.data, broadcastResult.newStrides2,
-                            broadcastResult.totalSize, result, broadcastResult.resultShape);
+            apply_simd_element_wise_op<T, SubtractOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                                          broadcastResult.newStrides2,
+                                                          broadcastResult.totalSize, result,
+                                                          broadcastResult.resultShape);
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
