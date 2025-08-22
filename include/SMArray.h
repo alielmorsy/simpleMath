@@ -317,7 +317,7 @@ namespace sm {
         }
 
         T &accessByValueRef(const std::initializer_list<std::size_t> &indices) const {
-            assert(indices.size() <= ndim && "Number of indices exceeds number of dimensions");
+            assert(indices.size() == ndim && "Number of indices exceeds number of dimensions");
 
             T *p = data;
             int strideIndex = 0;

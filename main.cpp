@@ -36,47 +36,7 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 } while(0)
 
 #endif
-int main() { {
-        auto one = sm::ones<float>(32, 224, 224, 3);
-        std::cout << one(0, 221, 5, 0) << std::endl;
-        // Smaller array for broadcasting: shape (1, 224, 1, 3)
-        auto two = sm::zeros<float>(1, 224, 1, 3);
-        std::cout<<two.totalSize<<std::endl;
-        // Fill the smaller array with values using indexing
-        for (size_t i = 0; i < 224; i++) {
-            for (size_t c = 0; c < 3; c++) {
-                two(0, i, 0, c) = 3;
-            }
-        }
-
-        // Take a view along the first axis
-        auto view = one(0, SLICE_ALL);
-    std::cout << view(221, 5, 0) << std::endl;
-        std::vector<size_t> expectedShape = {224, 224, 3};
-        assert(view.shape()== expectedShape);
-
-        // Add the smaller array (broadcasting along axes 0 and 2)
-        auto result = view + two;
-        std::vector<size_t> resultShape = {1, 224, 224, 3};
-        assert(result.shape()==resultShape);
-
-        // Check some values to ensure broadcasting worked
-        for (size_t i = 0; i < 224; i++) {
-            for (size_t j = 0; j < 224; j++) {
-                for (size_t c = 0; c < 3; c++) {
-                    float expected = 4;
-                    std::stringstream ss;
-                    ss << "0," << i << "," << j << "," << c;
-                    std::string r = ss.str();
-                    if (result(0, i, j, c) != expected)
-                        std::cout << "Index: " << r << "! Result: " << result(0, i, j, c) << " Expected: " << expected
-                                <<
-                                std::endl;
-                    assert(result(0,i, j, c)== expected);
-                }
-            }
-        }
-    }
+int main() {
     auto one = sm::ones<float>(32, 224, 224, 3); // A (1000x bigger)
     auto two = sm::zeros<float>(1, 224, 1, 3); // B (1000x bigger)
     // one(1, 2, 100, 0) = 3;
