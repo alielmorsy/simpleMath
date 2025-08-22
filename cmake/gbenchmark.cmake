@@ -9,6 +9,7 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+set(BENCHMARK_ENABLE_TESTING OFF)
 
 FetchContent_MakeAvailable(gbenchmark)
 

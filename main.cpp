@@ -37,6 +37,8 @@ std::cout << #label << " took " << label##_elapsed_us << " µs" << std::endl; \
 
 #endif
 int main() {
+    sm::SMArray<int> arr = {2};
+    auto result = sm::pow(arr, 3);
     auto one = sm::ones<float>(32, 224, 224, 3); // A (1000x bigger)
     auto two = sm::zeros<float>(1, 224, 1, 3); // B (1000x bigger)
     // one(1, 2, 100, 0) = 3;
@@ -60,7 +62,7 @@ int main() {
     // two(6, 3, 30, 2) = 3;
 
     auto view = one(0, SLICE_ALL);
-
+    sm::pow<float>(one, 5);
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
     auto c = one(0,SLICE(0, 0));
     auto result_add = one + two;

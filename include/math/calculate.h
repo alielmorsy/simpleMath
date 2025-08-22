@@ -4,9 +4,9 @@ template<typename T, typename Operation>
 void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n);
 
 template<typename T, typename Operation>
-void apply_simd_element_wise_op(const T *a, const std::vector<size_t> &stride_a,
-                                const T *b, const std::vector<size_t> &stride_b,
-                                size_t n, T *result, const std::vector<size_t> &shape) {
+void element_wise_op(const T *a, const std::vector<size_t> &stride_a,
+                     const T *b, const std::vector<size_t> &stride_b,
+                     size_t n, T *result, const std::vector<size_t> &shape) {
     const size_t ndim = shape.size();
     if (ndim == 1 || (stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1 &&
                       stride_a == stride_b && is_contiguous(shape, stride_a))) {
@@ -41,9 +41,9 @@ void apply_simd_element_wise_op(const T *a, const std::vector<size_t> &stride_a,
             broadcasting_b_inner = true;
         }
     }
-    bool has_inner_broadcasting = broadcasting_a_inner || broadcasting_b_inner;
+    bool hasInnerBroadcasting = broadcasting_a_inner || broadcasting_b_inner;
 
-    const bool canVectorize = (!has_inner_broadcasting && stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1) &&
+    const bool canVectorize = (!hasInnerBroadcasting && stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1) &&
                               (broadcasting_a_inner && broadcasting_b_inner);
 #pragma omp parallel for if(n > 100'000) default(none) schedule(static)  shared(a, b, result, stride_a_local, stride_b_local, prod_shape, shape) firstprivate(n, ndim)
     for (int64_t chunk_start = 0; chunk_start < n; chunk_start += CHUNK_SIZE) {
@@ -131,5 +131,40 @@ void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n) {
     // Handle remaining elements
     for (; i < n; ++i) {
         result[i] = Operation::apply(a[i], b[i]);
+    }
+}
+
+
+template<typename T, typename Operation>
+void array_scalar_op(const T *a, T value, const size_t n, T *result) {
+    constexpr int64_t simd_width = SimdTraits<T>::simd_width;
+    const int64_t simd_end = n - (n % simd_width); // last index for SIMD
+#if defined(__AVX512F__)
+    using simd = typename SimdTraits<T>::m512;
+    simd vb = SimdTraits<T>::set1_512(value);
+#elif defined(__AVX__)
+    using simd = typename SimdTraits<T>::m256;
+    simd vb = SimdTraits<T>::set1_256(value);
+#else
+            using simd = typename SimdTraits<T>::m128;
+    simd vb = SimdTraits<T>::set1_128(value);
+#endif
+
+#pragma omp parallel for schedule(static) shared(vb) if(simd_end > 100'000)
+    for (int64_t i = 0; i < simd_end; i += simd_width) {
+#if defined(__AVX512F__)
+        simd va = SimdTraits<T>::load512(a + i);
+        SimdTraits<T>::store512(result + i, Operation<T>::apply_simd(va, vb));
+#elif defined(__AVX__)
+        simd va = SimdTraits<T>::load256(a + i);
+        SimdTraits<T>::store256(result + i, Operation::apply_simd(va, vb));
+#else
+        simd va = SimdTraits<T>::load128(a + i);
+        SimdTraits<T>::store128(result + i, Operation<T>::apply_simd(va, vb));
+#endif
+    }
+
+    for (int64_t i = simd_end; i < n; ++i) {
+        result[i] = Operation::apply(a[i], value);
     }
 }
