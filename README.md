@@ -142,13 +142,13 @@ I was running these benchmarks on Ryzen 5 3600 + 32GB ram with AVX2 + OMP (enabl
 
 ### Power Benchmarks
 
-| Benchmark                | Time       | CPU       | Iterations |
-|--------------------------|------------|-----------|------------|
-| BM_SMArrayPow_1D         | 297 ns     | 61.6 ns   | 10907826   |
-| BM_SMArrayPow_2D         | 302 ns     | 69.8 ns   | 11200000   |
-| BM_SMArrayPow_Large/100  | 14163 ns   | 0.000 ns  | 1000       |
-| BM_SMArrayPow_Large/5000 | 91627 ns   | 31250 ns  | 1000       |
-| BM_SMArrayPow_Large/1000 | 1282631 ns | 906250 ns | 1000       |
+| Benchmark                | Time      | CPU       | Iterations |
+|--------------------------|-----------|-----------|------------|
+| BM_SMArrayPow_1D         | 297 ns    | 61.6 ns   | 10907826   |
+| BM_SMArrayPow_2D         | 302 ns    | 69.8 ns   | 11200000   |
+| BM_SMArrayPow_Large/100  | 14163 ns  | 0.000 ns  | 1000       |
+| BM_SMArrayPow_Large/5000 | 91627 ns  | 31250 ns  | 1000       |
+| BM_SMArrayPow_Large/1000 | 934838 ns | 890625 ns | 1000       |
 
 ## License
 
