@@ -14,3 +14,14 @@
 #endif
 
 #define CHUNK_SIZE 1024
+
+// cross-compiler loop unrolling
+#if defined(_MSC_VER)      // MSVC
+    #define PRAGMA_UNROLL(n) __pragma(loop(unroll, n))
+#elif defined(__clang__)   // Clang
+    #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
+#elif defined(__GNUC__)    // GCC
+    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
+#else
+    #define PRAGMA_UNROLL(n)  // fallback: nothing
+#endif
