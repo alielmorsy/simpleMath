@@ -13,6 +13,7 @@
 #include <math/subtract.h>
 #include <math/calculate.h>
 
+#include "math/division.h"
 #include "math/multiply.h"
 
 
@@ -126,6 +127,7 @@ namespace sm {
             }
             SMArray arr;
             arr.data = data;
+            arr.totalSize = calculateTotalSize(newShape);
             arr.isView = true;
             arr._shape = std::move(newShape);
             arr._strides = std::move(newStrides);
@@ -149,6 +151,7 @@ namespace sm {
             SMArray arr;
             arr.data = newData;
             arr._shape = {newTotalSize};
+            arr.totalSize = newTotalSize;
             arr._strides = {1};
             arr.ndim = 1;
             arr.isView = false;
@@ -207,40 +210,99 @@ namespace sm {
             return arr;
         }
 
-        T operator%(SMArray &arr) const{
+        T operator%(SMArray &arr) const {
             return dot_product(data, arr.data, arr.totalSize);
         }
 
         SMArray operator+(const SMArray &arr) const {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
-            apply_simd_element_wise_op<T, AddOp<T> >(data, broadcastResult.newStrides1, arr.data,
-                                                     broadcastResult.newStrides2,
-                                                     broadcastResult.totalSize, result, broadcastResult.resultShape);
+            element_wise_op<T, AddOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                          broadcastResult.newStrides2,
+                                          broadcastResult.totalSize, result, broadcastResult.resultShape);
 
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
+        SMArray operator+(const T val) const {
+            T *result = new T[totalSize];
+            array_scalar_op<T, AddOp<T> >(data, val, totalSize, result);
+            //To avoid calculating total size and ndim
+            SMArray arr;
+            arr.totalSize = totalSize;
+            arr.data = result;
+            arr._shape = _shape;
+            arr._strides = _strides;
+            arr.ndim = ndim;
+            return arr;
+        }
 
-        SMArray operator-(const SMArray &arr)const {
+        SMArray operator-(const SMArray &arr) const {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
-            apply_simd_element_wise_op<T, SubtractOp<T> >(data, broadcastResult.newStrides1, arr.data,
-                                                          broadcastResult.newStrides2,
-                                                          broadcastResult.totalSize, result,
-                                                          broadcastResult.resultShape);
+            element_wise_op<T, SubtractOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                               broadcastResult.newStrides2,
+                                               broadcastResult.totalSize, result,
+                                               broadcastResult.resultShape);
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
+        SMArray operator-(const T val) const {
+            T *result = new T[totalSize];
+            array_scalar_op<T, SubtractOp<T> >(data, val, totalSize, result);
+            //To avoid calculating total size and ndim
+            SMArray arr;
+            arr.totalSize = totalSize;
+            arr.data = result;
+            arr._shape = _shape;
+            arr._strides = _strides;
+            arr.ndim = ndim;
+            return arr;
+        }
 
-        SMArray operator*(const SMArray &arr) const{
+        SMArray operator*(const SMArray &arr) const {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
-            apply_simd_element_wise_op<T, MultiplyOp<T> >(data, broadcastResult.newStrides1, arr.data,
-                                                          broadcastResult.newStrides2,
-                                                          broadcastResult.totalSize, result,
-                                                          broadcastResult.resultShape);
+            element_wise_op<T, MultiplyOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                               broadcastResult.newStrides2,
+                                               broadcastResult.totalSize, result,
+                                               broadcastResult.resultShape);
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
+        SMArray operator*(const T val) const {
+            T *result = new T[totalSize];
+            array_scalar_op<T, MultiplyOp<T> >(data, val, totalSize, result);
+            //To avoid calculating total size and ndim
+            SMArray arr;
+            arr.totalSize = totalSize;
+            arr.data = result;
+            arr._shape = _shape;
+            arr._strides = _strides;
+            arr.ndim = ndim;
+            return arr;
+        }
+
+        SMArray operator/(const SMArray &arr) const {
+            auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
+            T *result = new T[broadcastResult.totalSize];
+            element_wise_op<T, DivideOp<T> >(data, broadcastResult.newStrides1, arr.data,
+                                             broadcastResult.newStrides2,
+                                             broadcastResult.totalSize, result,
+                                             broadcastResult.resultShape);
+            return SMArray(result, std::move(broadcastResult.resultShape));
+        }
+
+        SMArray operator/(const T val) const {
+            T *result = new T[totalSize];
+            array_scalar_op<T, DivideOp<T> >(data, val, totalSize, result);
+            //To avoid calculating total size and ndim
+            SMArray arr;
+            arr.totalSize = totalSize;
+            arr.data = result;
+            arr._shape = _shape;
+            arr._strides = _strides;
+            arr.ndim = ndim;
+            return arr;
+        }
         [[nodiscard]] std::string toString() const {
             std::ostringstream oss;
             std::function<void(size_t, size_t)> printRecursive;
@@ -368,6 +430,7 @@ namespace sm {
             arr.ndim = ndim;
             arr._shape = std::move(newShape);
             arr._strides = std::move(newStrides);
+            arr.totalSize = calculateTotalSize(newShape);
             arr.isView = true;
 
             return arr;

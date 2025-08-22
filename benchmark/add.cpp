@@ -12,7 +12,9 @@ static void simple_check(benchmark::State &state) {
             {1, 2, 3, 4, 5},
             {1, 2, 3, 4, 5},
         };
-        ac + ac;
+        auto result = ac + ac;
+        benchmark::DoNotOptimize(result);
+        benchmark::ClobberMemory();
     }
 }
 
@@ -20,7 +22,9 @@ static void million_check(benchmark::State &state) {
     const sm::SMArray<float> one = sm::ones<float>(1'000'000);
     const sm::SMArray<float> two = sm::ones<float>(1'000'000);
     for (auto _: state) {
-        auto res = one + two;
+        auto result = one + two;
+        benchmark::DoNotOptimize(result);
+        benchmark::ClobberMemory();
     }
 }
 

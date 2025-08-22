@@ -1,6 +1,9 @@
 #pragma once
 #include "SMArray.h"
 #include <execution>
+
+#include "math/pow.h"
+
 namespace sm {
     template<typename T, typename... Args>
     SMArray<T> empty(Args... args) {
@@ -33,6 +36,14 @@ namespace sm {
         size_t totalSize = calculateTotalSize(shape);
         T *data = new T[totalSize];
         std::fill_n(data, totalSize, 0);
+        return {data, std::move(shape)};
+    }
+
+    template<typename T>
+    SMArray<T> pow(SMArray<T> &arr, T val) {
+        T *data = new T[arr.totalSize];
+        array_scalar_op<T, PowOp<T> >(arr.data, val, arr.totalSize, data);
+        std::vector<size_t> shape = arr.shape();
         return {data, std::move(shape)};
     }
 }
