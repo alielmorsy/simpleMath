@@ -1,6 +1,6 @@
 #pragma once
 #include "SMArray.h"
-
+#include <execution>
 namespace sm {
     template<typename T, typename... Args>
     SMArray<T> empty(Args... args) {
@@ -17,7 +17,12 @@ namespace sm {
         std::vector<size_t> shape = {static_cast<size_t>(args)...};
         size_t totalSize = calculateTotalSize(shape);
         T *data = new T[totalSize];
-        std::fill_n(data, totalSize, 1);
+        if (totalSize < 100'000) {
+            std::fill_n(data, totalSize, T{1});
+        } else {
+            std::fill_n(std::execution::par_unseq, data, totalSize, T{1});
+        }
+
         return {data, std::move(shape)};
     }
 

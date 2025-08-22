@@ -207,11 +207,11 @@ namespace sm {
             return arr;
         }
 
-        T operator%(SMArray &arr) {
+        T operator%(SMArray &arr) const{
             return dot_product(data, arr.data, arr.totalSize);
         }
 
-        SMArray operator+(const SMArray &arr) {
+        SMArray operator+(const SMArray &arr) const {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
             apply_simd_element_wise_op<T, AddOp<T> >(data, broadcastResult.newStrides1, arr.data,
@@ -221,7 +221,7 @@ namespace sm {
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
-        SMArray operator-(const SMArray &arr) {
+        SMArray operator-(const SMArray &arr)const {
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
             apply_simd_element_wise_op<T, SubtractOp<T> >(data, broadcastResult.newStrides1, arr.data,
@@ -231,7 +231,7 @@ namespace sm {
             return SMArray(result, std::move(broadcastResult.resultShape));
         }
 
-        SMArray operator*(const SMArray &arr) {
+        SMArray operator*(const SMArray &arr) const{
             auto broadcastResult = sm::broadcast(_shape, _strides, arr._shape, arr._strides);
             T *result = new T[broadcastResult.totalSize];
             apply_simd_element_wise_op<T, MultiplyOp<T> >(data, broadcastResult.newStrides1, arr.data,

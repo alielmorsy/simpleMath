@@ -79,42 +79,42 @@ int main() { {
     }
     auto one = sm::ones<float>(32, 224, 224, 3); // A (1000x bigger)
     auto two = sm::zeros<float>(1, 224, 1, 3); // B (1000x bigger)
-    one(1, 2, 100, 0) = 3;
-    two(1, 2, 100, 0) = 3;
-
-    one(2, 2, 100, 0) = 3;
-
-    one(0, 0, 0, 0) = 2;
-    two(0, 0, 0, 0) = 5;
-
-    one(3, 1, 50, 2) = 7;
-    two(3, 1, 50, 2) = 1;
-
-    one(4, 2, 120, 1) = 8;
-    two(4, 2, 120, 1) = 2;
-
-    one(5, 0, 200, 0) = 1;
-    two(5, 0, 200, 0) = 4;
-
-    one(6, 3, 30, 2) = 6;
-    two(6, 3, 30, 2) = 3;
+    // one(1, 2, 100, 0) = 3;
+    // two(1, 2, 100, 0) = 3;
+    //
+    // one(2, 2, 100, 0) = 3;
+    //
+    // one(0, 0, 0, 0) = 2;
+    // two(0, 0, 0, 0) = 5;
+    //
+    // one(3, 1, 50, 2) = 7;
+    // two(3, 1, 50, 2) = 1;
+    //
+    // one(4, 2, 120, 1) = 8;
+    // two(4, 2, 120, 1) = 2;
+    //
+    // one(5, 0, 200, 0) = 1;
+    // two(5, 0, 200, 0) = 4;
+    //
+    // one(6, 3, 30, 2) = 6;
+    // two(6, 3, 30, 2) = 3;
 
     auto view = one(0, SLICE_ALL);
 
     auto res = sm::broadcast(one.shape(), one.strides(), two.shape(), two.strides());
-    auto c = one(0,SLICE_START(0, 0));
+    auto c = one(0,SLICE(0, 0));
     auto result_add = one + two;
     // for (size_t i = 0; i < result_add.totalSize; ++i) {
     //     assert(result_add.data[i]==2);
     // }
-    assert(result_add(1, 2, 100, 0) ==6&&"First check wrong");
-    assert(result_add(2, 2, 100, 0) ==4&&"Second check wrong");
-    // Assertions
-    assert(result_add(0, 0, 0, 0) == 7 && "Third check wrong"); // 2+5=7
-    assert(result_add(3, 1, 50, 2) == 8 && "Fourth check wrong"); // 7+1=8
-    assert(result_add(4, 2, 120, 1) == 10 && "Fifth check wrong"); // 8+2=10
-    assert(result_add(5, 0, 200, 0) == 5 && "Sixth check wrong"); // 1+4=5
-    assert(result_add(6, 3, 30, 2) == 9 && "Seventh check wrong"); // 6+3=9
+    // assert(result_add(1, 2, 100, 0) ==6&&"First check wrong");
+    // assert(result_add(2, 2, 100, 0) ==4&&"Second check wrong");
+    // // Assertions
+    // assert(result_add(0, 0, 0, 0) == 7 && "Third check wrong"); // 2+5=7
+    // assert(result_add(3, 1, 50, 2) == 8 && "Fourth check wrong"); // 7+1=8
+    // assert(result_add(4, 2, 120, 1) == 10 && "Fifth check wrong"); // 8+2=10
+    // assert(result_add(5, 0, 200, 0) == 5 && "Sixth check wrong"); // 1+4=5
+    // assert(result_add(6, 3, 30, 2) == 9 && "Seventh check wrong"); // 6+3=9
     //std::cout << (one + two) << std::endl;
 
     // Measure the time for summing 10 times

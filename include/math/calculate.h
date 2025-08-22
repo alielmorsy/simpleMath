@@ -46,7 +46,7 @@ void apply_simd_element_wise_op(const T *a, const std::vector<size_t> &stride_a,
     bool canVectorize = (!has_inner_broadcasting && stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1) &&
                         (broadcasting_a_inner && broadcasting_b_inner);
 #pragma omp parallel for if(n > 100'000) schedule(static)
-    for (__int64 chunk_start = 0; chunk_start < n; chunk_start += CHUNK_SIZE) {
+    for (int64_t chunk_start = 0; chunk_start < n; chunk_start += CHUNK_SIZE) {
         const size_t chunk_end = std::min(static_cast<size_t>(chunk_start) + CHUNK_SIZE, n);
         for (size_t linear = chunk_start; linear < chunk_end;) {
             // Compute offsets for current linear index
@@ -117,8 +117,7 @@ inline void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n
         simd vb = SimdTraits<T>::load256(b + i);
         SimdTraits<T>::store256(result + i, Operation::apply_simd(va, vb));
     }
-#endif
-#if defined(__SSE__)
+#elif defined(__SSE__)
     using simd = typename SimdTraits<T>::m128;
     for (; i + 4 <= n; i += SimdTraits<T>::simd_width) {
         simd va = SimdTraits<T>::load128(a + i);
