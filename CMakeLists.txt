@@ -8,9 +8,9 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 find_package(OpenMP REQUIRED)
 include(cmake/avx_utils.cmake)
 include(cmake/gtest.cmake)
-set(CMAKE_CXX_STANDARD 23)
+include(cmake/gbenchmark.cmake)
+set(CMAKE_CXX_STANDARD 20)
 
-add_subdirectory(tests)
 
 add_library(sm INTERFACE)
 target_include_directories(sm INTERFACE include)
@@ -30,3 +30,9 @@ endif ()
 add_executable(simpleMath-toolkit main.cpp)
 target_link_libraries(simpleMath-toolkit sm)
 
+add_executable(cpp cpp.cpp)
+
+
+
+add_subdirectory(tests)
+add_subdirectory(benchmark)
