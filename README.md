@@ -17,7 +17,7 @@ high-performance operations, `simpleMath-toolkit` keeps things fast, readable, a
 
 ## Requirements
 
-- A C++ compiler supporting C++17 (for concepts, `if constexpr`, etc.)
+- A C++ compiler supporting C++20 (for concepts, `if constexpr`, etc.)
 - CMake (for building tests and benchmarks)
 - CPU with SIMD support (optional but recommended for maximum performance)
 
