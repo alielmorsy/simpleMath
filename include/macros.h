@@ -21,7 +21,13 @@
 #elif defined(__clang__)   // Clang
     #define PRAGMA_UNROLL(n) _Pragma("clang loop unroll_count(n)")
 #elif defined(__GNUC__)    // GCC
-    #define PRAGMA_UNROLL(n) _Pragma("GCC unroll n")
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+#define PRAGMA_UNROLL(n) _Pragma(STR(GCC unroll n))
 #else
     #define PRAGMA_UNROLL(n)  // fallback: nothing
+#endif
+
+#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#define USE_SVML
 #endif

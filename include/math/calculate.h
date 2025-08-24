@@ -1,5 +1,4 @@
 #pragma once
-
 template<typename T, typename Operation>
 void handle_contiguous_arrays(const T *a, const T *b, T *result, size_t n);
 
@@ -45,7 +44,7 @@ void element_wise_op(const T *a, const std::vector<size_t> &stride_a,
 
     const bool canVectorize = (!hasInnerBroadcasting && stride_a[ndim - 1] == 1 && stride_b[ndim - 1] == 1) &&
                               (broadcasting_a_inner && broadcasting_b_inner);
-#pragma omp parallel for if(n > 100'000) default(none) schedule(static)  shared(a, b, result, stride_a_local, stride_b_local, prod_shape, shape) firstprivate(n, ndim)
+#pragma omp parallel for if(n > 100'000) default(none) schedule(static)  shared(a, b, result, stride_a_local, stride_b_local, prod_shape, shape,canVectorize) firstprivate(n, ndim)
     for (int64_t chunk_start = 0; chunk_start < n; chunk_start += CHUNK_SIZE) {
         const size_t chunk_end = std::min(static_cast<size_t>(chunk_start) + CHUNK_SIZE, n);
         //unrolling only by two because we don't know how large our arrays are
