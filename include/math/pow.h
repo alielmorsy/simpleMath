@@ -62,7 +62,7 @@ inline __m128i PowOp<int>::apply_simd<__m128i>(const __m128i &base, const __m128
     const __m128 rf = _mm_pow_ps(af, bf);
     return _mm_cvtps_epi32(rf);
 #else
-    return __sm128_powi_ps(base, exponent);
+    return _sm128_powi_ps(base, exponent);
 #endif
 }
 
@@ -76,7 +76,7 @@ inline __m256i PowOp<int>::apply_simd<__m256i>(const __m256i &base, const __m256
     const __m256 rf = _mm256_pow_ps(af, bf);
     return _mm256_cvtps_epi32(rf);
 #else
-    return __sm256_powi_ps(base, exponent);
+    return _sm256_powi_ps(base, exponent);
 #endif
 }
 
@@ -90,6 +90,6 @@ inline __m512i PowOp<int>::apply_simd<__m512i>(const __m512i &base, const __m512
     const __m512 rf = _mm512_pow_ps(af, bf);
     return _mm512_cvtps_epi32(rf);
 #else
-    return __sm512_powi_ps(base, exponent);
+    return _sm512_powi_ps(base, exponent);
 #endif
 }
