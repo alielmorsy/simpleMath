@@ -3,6 +3,7 @@
 #include <execution>
 
 #include "math/pow.h"
+#include "math/exp.h"
 
 namespace sm {
     template<typename T, typename... Args>
@@ -45,6 +46,22 @@ namespace sm {
         array_scalar_op<T, PowOp<T> >(arr.data, val, arr.totalSize, data);
         std::vector<size_t> shape = arr.shape();
         return {data, std::move(shape)};
+    }
+
+    template<typename T>
+    auto exp(SMArray<T> &arr) {
+        // If T is int, return float
+        using ReturnType = std::conditional_t<std::is_integral<T>::value, float, T>;
+
+        ReturnType *data = new ReturnType[arr.totalSize];
+
+        // Lambda to handle type conversion if input is int
+        for (size_t i = 0; i < arr.totalSize; ++i) {
+            data[i] = std::exp(static_cast<ReturnType>(arr.data[i]));
+        }
+
+        std::vector<size_t> shape = arr.shape();
+        return SMArray<ReturnType>{data, std::move(shape)};
     }
 }
 
