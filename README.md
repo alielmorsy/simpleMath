@@ -26,7 +26,7 @@ high-performance operations, `simpleMath-toolkit` keeps things fast, readable, a
 Clone the library via
 
 ```shell
-git clone https://github.com/alielmorsy/simpleMath-toolkit
+git clone https://github.com/alielmorsy/simpleMath
 ```
 
 Since this library is header-only, including `sm.h` is enough:
