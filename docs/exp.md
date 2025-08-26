@@ -142,6 +142,7 @@ I used `degree = 5` for floats and `degree = 9` for doubles.
 ## Step 4
 
 Now we have both parts calculated in our expression
+
 $$
 e^r = 2^q \cdot e^r
 $$
