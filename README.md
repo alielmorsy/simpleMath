@@ -1,9 +1,8 @@
-# simpleMath-toolkit
-
-`simpleMath-toolkit` is a modern, header-only C++ library for fast and flexible numerical computing. Inspired by
+# Simple Math (sm)
+`simpleMath` is a modern, header-only C++ library for fast and flexible numerical computing. Inspired by
 Python's NumPy, it lets you work with multi-dimensional arrays and leverages SIMD instructions (SSE, AVX, AVX-512) to
 speed up mathematical operations with minimal fuss. Whether you need simple element-wise math or custom,
-high-performance operations, `simpleMath-toolkit` keeps things fast, readable, and easy to extend.
+high-performance operations, `simpleMath` keeps things fast, readable, and easy to extend.
 
 ## Key Features
 
