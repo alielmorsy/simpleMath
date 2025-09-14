@@ -1,25 +1,29 @@
 #pragma once
 #include <immintrin.h>
-#define LN2 0.6931471805599453
-#define FLOAT_P0 5.0000001201E-1f
-#define FLOAT_P1 1.6666665459E-1f
-#define FLOAT_P2 4.1665795894E-2f
-#define FLOAT_P3 8.3334519073E-3f
-#define FLOAT_P4 1.3981999507E-3f
-#define FLOAT_P5 1.9875691500E-4f
+#include <cmath>
+constexpr float INVERT_LN=1/M_LN2f;
+#define FLOAT_EXP_P_P0 0.5f
+#define FLOAT_EXP_P_P1 0.16666667163372039794921875f
+#define FLOAT_EXP_P_P2 4.16666679084300994873046875e-2f
+#define FLOAT_EXP_P_P3 8.333086036145687103271484375e-3f
+#define FLOAT_EXP_P_P4 1.38885690830647945404052734375e-3f
+#define FLOAT_EXP_P_P5 2.01933653443120419979095458984375e-4f
+#define FLOAT_EXP_P_P6 2.5018491214723326265811920166015625e-5f
+#define FLOAT_EXP_P_P7 (-1.24136158774490468204021453857421875e-5f)
+
 /**
  * Created using fpminimax((exp(x)-1-x)/x^2, 9, [|double,double,double,double,double,double,double,double,double,double|], [-log(2)/2, log(2)/2]); in sollya
  */
-#define DOUBLE_P0 0.50000000000000011102230246251565404236316680908203
-#define DOUBLE_P1 0.1666666666666664353702032030923874117434024810791
-#define DOUBLE_P2 4.1666666666623275450120900131878443062305450439453e-2
-#define DOUBLE_P3 8.3333333333563061606774624578974908217787742614746e-3
-#define DOUBLE_P4 1.38888889174418350171136271598015810013748705387115e-3
-#define DOUBLE_P5 1.98412697847594052735428760136926484847208485007286e-4
-#define DOUBLE_P6 2.4801521066586273452222663471467001272685592994094e-5
-#define DOUBLE_P7 2.7557355160389988974736687893374309510363673325628e-6
-#define DOUBLE_P8 2.7620165997199183457834546599751757156582243624143e-7
-#define DOUBLE_P9 2.5068351359563136183318841432657309020726188464323e-8
+#define DOUBLE_EXP_P_P0 0.50000000000000011102230246251565404236316680908203
+#define DOUBLE_EXP_P_P1 0.1666666666666664353702032030923874117434024810791
+#define DOUBLE_EXP_P_P2 4.1666666666623275450120900131878443062305450439453e-2
+#define DOUBLE_EXP_P_P3 8.3333333333563061606774624578974908217787742614746e-3
+#define DOUBLE_EXP_P_P4 1.38888889174418350171136271598015810013748705387115e-3
+#define DOUBLE_EXP_P_P5 1.98412697847594052735428760136926484847208485007286e-4
+#define DOUBLE_EXP_P_P6 2.4801521066586273452222663471467001272685592994094e-5
+#define DOUBLE_EXP_P_P7 2.7557355160389988974736687893374309510363673325628e-6
+#define DOUBLE_EXP_P_P8 2.7620165997199183457834546599751757156582243624143e-7
+#define DOUBLE_EXP_P_P9 2.5068351359563136183318841432657309020726188464323e-8
 
 
 /* ===============================================
@@ -28,16 +32,16 @@
  */
 inline __m128 _sm_exp_ps(const __m128 x) {
     // Constants
-    const __m128 ln2 = _mm_set1_ps(0.69314718056f);
-    const __m128 inv_ln2 = _mm_set1_ps(1.44269504089f);
+    const __m128 ln2 = _mm_set1_ps(M_LN2f);
+    const __m128 inv_ln2 = _mm_set1_ps(INVERT_LN); // 1/ln(2)
     const __m128i magic_int = _mm_set1_epi32(0x3f800000);
 
-    const __m128 p5 = _mm_set1_ps(FLOAT_P5);
-    const __m128 p4 = _mm_set1_ps(FLOAT_P4);
-    const __m128 p3 = _mm_set1_ps(FLOAT_P3);
-    const __m128 p2 = _mm_set1_ps(FLOAT_P2);
-    const __m128 p1 = _mm_set1_ps(FLOAT_P1);
-    const __m128 p0 = _mm_set1_ps(FLOAT_P0);
+    const __m128 p5 = _mm_set1_ps(FLOAT_EXP_P_P5);
+    const __m128 p4 = _mm_set1_ps(FLOAT_EXP_P_P4);
+    const __m128 p3 = _mm_set1_ps(FLOAT_EXP_P_P3);
+    const __m128 p2 = _mm_set1_ps(FLOAT_EXP_P_P2);
+    const __m128 p1 = _mm_set1_ps(FLOAT_EXP_P_P1);
+    const __m128 p0 = _mm_set1_ps(FLOAT_EXP_P_P0);
 
     // Step 1: Range reduction
     __m128 q = _mm_mul_ps(x, inv_ln2);
@@ -67,18 +71,11 @@ inline __m128 _sm_exp_ps(const __m128 x) {
 
 inline __m256 _sm256_exp_ps(const __m256 x) {
     // Constants
-    const __m256 ln2 = _mm256_set1_ps(0.69314718056f);
-    const __m256 inv_ln2 = _mm256_set1_ps(1.44269504089f); // 1/ln(2)
+    const __m256 ln2 = _mm256_set1_ps(M_LN2f);
+    const __m256 inv_ln2 = _mm256_set1_ps(INVERT_LN); // 1/ln(2)
     const __m256i magic_int = _mm256_set1_epi32(0x3f800000); // Integer representation of 1.0f
 
-    // Minimax polynomial coefficients for e^r on [-ln(2)/2, ln(2)/2]
-    // More accurate than Taylor series for the same number of terms
-    const __m256 p5 = _mm256_set1_ps(FLOAT_P5);
-    const __m256 p4 = _mm256_set1_ps(FLOAT_P4);
-    const __m256 p3 = _mm256_set1_ps(FLOAT_P3);
-    const __m256 p2 = _mm256_set1_ps(FLOAT_P2);
-    const __m256 p1 = _mm256_set1_ps(FLOAT_P1);
-    const __m256 p0 = _mm256_set1_ps(FLOAT_P0);
+
 
     // --- Step 1: Range Reduction ---
     // q = round(x / ln(2))
@@ -105,16 +102,15 @@ inline __m256 _sm256_exp_ps(const __m256 x) {
     // Using a slightly different formulation for better precision:
     // e^r ≈ 1 + 2 * r / (2 - r) is a good starting point. Here we use a more complex polynomial.
     // Fully equation: // e^r ≈ 1 + r + p₀*r² + p₁*r³ + p₂*r⁴ + p₃*r⁵ + p₄*r⁶ + p₅*r⁷
-    __m256 y = p5;
-    y = _mm256_fmadd_ps(y, r, p4);
-    y = _mm256_fmadd_ps(y, r, p3);
-    y = _mm256_fmadd_ps(y, r, p2);
-    y = _mm256_fmadd_ps(y, r, p1);
-    y = _mm256_fmadd_ps(y, r, p0);
-    y = _mm256_mul_ps(y, r2);
-    y = _mm256_add_ps(y, r);
-    __m256 e_r = _mm256_add_ps(y, _mm256_set1_ps(1.0f));
-
+    __m256 y = _mm256_set1_ps(FLOAT_EXP_P_P7);
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P6));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P5));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P4));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P3));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P2));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P1));
+    y = _mm256_fmadd_ps(y, r, _mm256_set1_ps(FLOAT_EXP_P_P0));
+__m256 e_r = _mm256_fmadd_ps(y, r2, _mm256_add_ps(r, _mm256_set1_ps(1.0f)));
     // --- Step 4: Final Result ---
     // result = 2^q * e^r
     return _mm256_mul_ps(two_pow_q, e_r);
@@ -126,12 +122,12 @@ inline __m512 _sm512_exp_ps(const __m512 x) {
     const __m512 inv_ln2 = _mm512_set1_ps(1.44269504089f);
     const __m512i magic_int = _mm512_set1_epi32(0x3f800000);
 
-    const __m512 p5 = _mm512_set1_ps(FLOAT_P5);
-    const __m512 p4 = _mm512_set1_ps(FLOAT_P4);
-    const __m512 p3 = _mm512_set1_ps(FLOAT_P3);
-    const __m512 p2 = _mm512_set1_ps(FLOAT_P2);
-    const __m512 p1 = _mm512_set1_ps(FLOAT_P1);
-    const __m512 p0 = _mm512_set1_ps(FLOAT_P0);
+    const __m512 p5 = _mm512_set1_ps(FLOAT_EXP_P_P5);
+    const __m512 p4 = _mm512_set1_ps(FLOAT_EXP_P_P4);
+    const __m512 p3 = _mm512_set1_ps(FLOAT_EXP_P_P3);
+    const __m512 p2 = _mm512_set1_ps(FLOAT_EXP_P_P2);
+    const __m512 p1 = _mm512_set1_ps(FLOAT_EXP_P_P1);
+    const __m512 p0 = _mm512_set1_ps(FLOAT_EXP_P_P0);
 
     // Step 1: Range reduction
     __m512 q = _mm512_mul_ps(x, inv_ln2);
@@ -197,16 +193,16 @@ inline __m128d _sm_exp_pd(const __m128d x) {
 
     // Evaluate the polynomial P(r) using Horner's method
     // Evaluate P(r) using Horner's method
-    __m128d poly = _mm_set1_pd(DOUBLE_P9);
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P8));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P7));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P6));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P5));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P4));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P3));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P2));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P1));
-    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_P0));
+    __m128d poly = _mm_set1_pd(DOUBLE_EXP_P_P9);
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P8));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P7));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P6));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P5));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P4));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P3));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P2));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P1));
+    poly = _mm_fmadd_pd(poly, r, _mm_set1_pd(DOUBLE_EXP_P_P0));
 
     // Multiply by r^2
     poly = _mm_mul_pd(poly, r2);
@@ -242,16 +238,16 @@ inline __m256d _sm256_exp_pd(const __m256d x) {
     __m256d r2 = _mm256_mul_pd(r, r);
 
     // Polynomial evaluation for (exp(r)-1-r)/r^2
-    __m256d poly = _mm256_set1_pd(DOUBLE_P9);
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P8));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P7));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P6));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P5));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P4));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P3));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P2));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P1));
-    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_P0));
+    __m256d poly = _mm256_set1_pd(DOUBLE_EXP_P_P9);
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P8));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P7));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P6));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P5));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P4));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P3));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P2));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P1));
+    poly = _mm256_fmadd_pd(poly, r, _mm256_set1_pd(DOUBLE_EXP_P_P0));
 
     // Reconstruct exp(r) = 1 + r + r^2 * P(r)
     __m256d y = _mm256_fmadd_pd(poly, r2, r); // r + r^2 * P(r)
@@ -282,16 +278,16 @@ inline __m512d _sm512_exp_pd(const __m512d x) {
     __m512d r = _mm512_fnmadd_pd(q, ln2, x);
     __m512d r2 = _mm512_mul_pd(r, r);
 
-    __m512d poly = _mm512_set1_pd(DOUBLE_P9);
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P8));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P7));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P6));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P5));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P4));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P3));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P2));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P1));
-    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_P0));
+    __m512d poly = _mm512_set1_pd(DOUBLE_EXP_P_P9);
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P8));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P7));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P6));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P5));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P4));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P3));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P2));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P1));
+    poly = _mm512_fmadd_pd(poly, r, _mm512_set1_pd(DOUBLE_EXP_P_P0));
 
     __m512d y = _mm512_fmadd_pd(poly, r2, r);
     __m512d exp_r = _mm512_add_pd(y, _mm512_set1_pd(1.0));

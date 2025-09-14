@@ -4,6 +4,7 @@
 
 #include "math/pow.h"
 #include "math/exp.h"
+#include "math/log.h"
 
 namespace sm {
     template<typename T, typename... Args>
@@ -53,16 +54,44 @@ namespace sm {
         // If T is int, return float
         using ReturnType = std::conditional_t<std::is_integral<T>::value, float, T>;
 
-        ReturnType *data = new ReturnType[arr.totalSize];
+        ReturnType *result = new ReturnType[arr.totalSize];
 
         // Lambda to handle type conversion if input is int
-        for (size_t i = 0; i < arr.totalSize; ++i) {
-            data[i] = std::exp(static_cast<ReturnType>(arr.data[i]));
-        }
+        array_single_op<T, ReturnType, EXpOp<T> >(arr.data, arr.totalSize, result);
 
         std::vector<size_t> shape = arr.shape();
-        return SMArray<ReturnType>{data, std::move(shape)};
+        return SMArray<ReturnType>{result, std::move(shape)};
     }
+
+    template<typename T>
+    auto log(SMArray<T> &arr) {
+        // If T is int, return float
+        using ReturnType = std::conditional_t<std::is_integral_v<T>, float, T>;
+
+        ReturnType *result = new ReturnType[arr.totalSize];
+
+        // Lambda to handle type conversion if input is int
+        array_single_op<T, ReturnType, LogEOp<T> >(arr.data, arr.totalSize, result);
+
+        std::vector<size_t> shape = arr.shape();
+        return SMArray<ReturnType>{result, std::move(shape)};
+    }
+
+    // template<typename T>
+    // auto exp(SMArray<T> &arr) {
+    //     // If T is int, return float
+    //     using ReturnType = std::conditional_t<std::is_integral<T>::value, float, T>;
+    //
+    //     ReturnType *data = new ReturnType[arr.totalSize];
+    //
+    //     // Lambda to handle type conversion if input is int
+    //     for (size_t i = 0; i < arr.totalSize; ++i) {
+    //         data[i] = std::exp(static_cast<ReturnType>(arr.data[i]));
+    //     }
+    //
+    //     std::vector<size_t> shape = arr.shape();
+    //     return SMArray<ReturnType>{data, std::move(shape)};
+    // }
 }
 
 /**

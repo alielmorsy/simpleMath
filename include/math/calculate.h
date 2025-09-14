@@ -167,3 +167,43 @@ void array_scalar_op(const T *a, T value, const size_t n, T *result) {
         result[i] = Operation::apply(a[i], value);
     }
 }
+
+
+template<typename T, typename Result, typename Operation>
+void array_single_op(const T *a, const size_t n, Result *result) {
+    constexpr int64_t simd_width = SimdTraits<T>::simd_width;
+    const int64_t simd_end = n - (n % simd_width);
+
+#if defined(__AVX512F__)
+    using simd_in = typename SimdTraits<T>::m512;
+    using simd_out = typename SimdTraits<Result>::m512;
+#pragma omp parallel for schedule(static) if(simd_end > 100'000)
+    for (int64_t i = 0; i < simd_end; i += simd_width) {
+        simd_in va = SimdTraits<T>::load512(a + i);
+        SimdTraits<Result>::store512(result + i, Operation::template apply_simd<simd_in, simd_out>(va));
+    }
+#elif defined(__AVX__)
+    using simd_in = typename SimdTraits<T>::m256;
+    using simd_out = typename SimdTraits<Result>::m256;
+#pragma omp parallel for schedule(static) if(simd_end > 100'000)
+    for (int64_t i = 0; i < simd_end; i += simd_width) {
+        simd_in va = SimdTraits<T>::load256(a + i);
+        auto v = Operation::template apply_simd<simd_in, simd_out>(va);
+        // Result p[4];
+        // SimdTraits<Result>::store256(p, v);
+        SimdTraits<Result>::store256(result + i, v);
+    }
+#else
+    using simd_in = typename SimdTraits<T>::m128;
+    using simd_out = typename SimdTraits<Result>::m128;
+#pragma omp parallel for schedule(static) if(simd_end > 100'000)
+    for (int64_t i = 0; i < simd_end; i += simd_width) {
+        simd_in va = SimdTraits<T>::load128(a + i);
+        SimdTraits<Result>::store128(result + i, Operation::template apply_simd<simd_in, simd_out>(va));
+    }
+#endif
+
+    for (int64_t i = simd_end; i < n; ++i) {
+        result[i] = Operation::template apply<Result>(a[i]);
+    }
+}

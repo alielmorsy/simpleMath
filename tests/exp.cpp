@@ -31,12 +31,20 @@ TEST(SMArrayExpTest, TwoDimensionalIntExp) {
     EXPECT_FLOAT_EQ(result(1,2), std::exp(6.0f));
 }
 
-TEST(SMArrayExpTest, FloatArrayExp) {
-    SMArray<float> arr = {0.1f, 0.5f, 1.0f};
+TEST(SMArrayExpTest, FloatArrayExp1) {
+    SMArray<float> arr = {3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f};
     auto result = sm::exp(arr);
-    EXPECT_NEAR(result(0), std::exp(0.1), 1e-6);
-    EXPECT_NEAR(result(1), std::exp(0.5), 1e-6);
-    EXPECT_NEAR(result(2), std::exp(1.0), 1e-6);
+    EXPECT_NEAR(result(0), std::exp(3.0f), 1e-48);
+    EXPECT_NEAR(result(1), std::exp(3.0f), 1e-48);
+    EXPECT_NEAR(result(2), std::exp(3.0f), 1e-48);
+}
+
+TEST(SMArrayExpTest, FloatArrayExp) {
+    SMArray<float> arr = {0.3f, 0.5f, 1.0f, 0.1f, 0.5f, 1.0f, 0.1f, 0.5f, 1.0f};
+    auto result = sm::exp(arr);
+    EXPECT_NEAR(result(0), std::exp(0.3), 1e-12);
+    EXPECT_NEAR(result(1), std::exp(0.5), 1e-12);
+    EXPECT_NEAR(result(2), std::exp(1.0), 1e-12);
 }
 
 TEST(SMArrayExpTest, DoubleArrayExp) {
@@ -55,7 +63,7 @@ TEST(SMArrayExpTest, LargeFloatArray) {
     auto result = sm::exp(arr);
     float expected = std::exp(0.5f);
     for (int i = 0; i < arr.totalSize; ++i)
-        EXPECT_NEAR(result.data[i], expected, 1e-6);
+        EXPECT_NEAR(result.data[i], expected, 1e-12);
 }
 
 TEST(SMArrayExpTest, LargeDoubleArray) {

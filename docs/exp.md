@@ -5,14 +5,6 @@ SLEEF. I could not have managed this without their implementation. I attempted t
 from
 theirs, but I am not sure if I succeeded.
 
-## Supported functions:
-
-- `m128d _sm_exp_ps(const __m128 x)` for SSE floats
-- `__m256 _sm256_exp_ps(const __m256 x)` for AVX2 floats
-- `__m512 _sm512_exp_ps(const __m512 x)` for AVX512 floats
-- `__m128d _sm_exp_pd(const __m128d x)` for SSE doubles
-- `__m256d _sm256_exp_pd(const __m256d x)` for AVX2 doubles
-- `__m512d _sm512_exp_pd(const __m512d x)` for AVX512 doubles
 
 ## Step 1
 
@@ -143,7 +135,7 @@ I used `degree = 5` for floats and `degree = 9` for doubles.
 
 Now we have both parts calculated in our expression
 $$
-e^r = 2^q \cdot e^r
+e^x = 2^q \cdot e^r
 $$
 
 We can do a simple float multiply and return the result and voilà! The exponent is calculated

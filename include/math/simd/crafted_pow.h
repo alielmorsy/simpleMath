@@ -1,5 +1,7 @@
 #pragma once
 #include <immintrin.h>
+
+#include "crafted_exp.h"
 #include "utils.h"
 #include "crafted_log.h"
 
@@ -155,8 +157,10 @@ inline __m512i _sm512_powi_ps(const __m512i base, const __m512i exp) {
     return _mm512_mask_blend_epi32(neg_exp_mask, pos_result, neg_result);
 }
 
-inline __m128 __smm128_powf_ps(const __m128 base, const __m128 exp) {
-    auto exp_truncated = _mm_truncate_ps(exp);
+/**
+*
+inline __m128 _sm_pow_ps(const __m128 base, const __m128 exp) {
+    auto exp_truncated = _sm_truncate_ps(exp);
     __m128 is_int_mask = _mm_or_ps(
         _mm_cmpeq_ps(exp_truncated, exp),
         _mm_cmpgt_ps(_mm_abs_ps(exp), _mm_set1_ps(1 << 24))
@@ -184,4 +188,13 @@ inline __m128 __smm128_powf_ps(const __m128 base, const __m128 exp) {
     __m128 mul = _mm_mul_ps(base_log, exp);
 
     __m128 result = _sm_exp_ps(mul);
+    return result;
+}
+
+ */
+inline __m256 _sm256_pow_ps(const __m256 base, const __m256 exp) {
+    // Calculates pow using the identity: base^exp = e^(exp * log(base))
+    __m256 log_base = _sm256_log_ps(base);
+    __m256 product = _mm256_mul_ps(exp, log_base);
+    return _sm256_exp_ps(product);
 }

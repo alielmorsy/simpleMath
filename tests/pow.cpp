@@ -99,27 +99,27 @@ TEST(SMArrayPowTest, TestLargeArraysWithNegatives) {
 }
 
 //TODO: DISABLED TILL REWRITE
-// TEST(SMArrayPowTest, TestLargeArraysDifferentValues) {
-//     sm::SMArray<float> arr = sm::empty<float>(1000, 1000, 2);
-//
-//     // Fill the array with different values
-//     for (int i = 0; i < arr.shape()[0]; ++i) {
-//         for (int j = 0; j < arr.shape()[1]; ++j) {
-//             for (int k = 0; k < arr.shape()[2]; ++k) {
-//                 arr(i, j, k) = i + j + k;  // simple formula to generate unique values
-//             }
-//         }
-//     }
-//
-//     auto result = sm::pow(arr, 3.f);  // element-wise power
-//
-//     // Verify the results
-//     for (int i = 0; i < result.shape()[0]; ++i) {
-//         for (int j = 0; j < result.shape()[1]; ++j) {
-//             for (int k = 0; k < result.shape()[2]; ++k) {
-//                 const float expected = std::pow(arr(i,j,k), 3.f);
-//                 EXPECT_FLOAT_EQ(result(i,j,k), expected);
-//             }
-//         }
-//     }
-// }
+TEST(SMArrayPowTest, TestLargeArraysDifferentValues) {
+    sm::SMArray<float> arr = sm::empty<float>(3, 3, 2);
+
+    // Fill the array with different values
+    for (int i = 0; i < arr.shape()[0]; ++i) {
+        for (int j = 0; j < arr.shape()[1]; ++j) {
+            for (int k = 0; k < arr.shape()[2]; ++k) {
+                arr(i, j, k) = i + j + k;  // simple formula to generate unique values
+            }
+        }
+    }
+
+    auto result = sm::pow(arr, 3.f);  // element-wise power
+
+    // Verify the results
+    for (int i = 0; i < result.shape()[0]; ++i) {
+        for (int j = 0; j < result.shape()[1]; ++j) {
+            for (int k = 0; k < result.shape()[2]; ++k) {
+                const float expected = std::pow(arr(i,j,k), 3.f);
+                EXPECT_NEAR(result(i,j,k), expected, 1e-16);
+            }
+        }
+    }
+}

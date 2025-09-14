@@ -19,11 +19,12 @@ struct PowOp {
 //     return _mm_pow_ps(a, b);
 // }
 //
-// template<>
-// template<>
-// inline __m256 PowOp<float>::apply_simd<__m256>(const __m256 &base, const __m256&exp) {
-//     return _mm256_pow_ps(a, b);
-// }
+template<>
+template<>
+inline __m256 PowOp<float>::apply_simd<__m256>(const __m256 &base, const __m256 &exp) {
+    return _sm256_pow_ps(base, exp);
+}
+
 //
 // template<>
 // template<>
