@@ -101,6 +101,7 @@ $$
 
 We will use **Horner's method** as it efficient and approximates fast. This method is an optimized version of Taylor's
 series. That's how taylor series would look like
+
 $$
 e^x = \sum_{n=0}^{\infty} \frac{x^n}{n!} = 1 + x + \frac{x^2}{2!} + \frac{x^3}{3!} + \frac{x^4}{4!} + \dots
 $$
@@ -134,6 +135,7 @@ I used `degree = 5` for floats and `degree = 9` for doubles.
 ## Step 4
 
 Now we have both parts calculated in our expression
+
 $$
 e^x = 2^q \cdot e^r
 $$
