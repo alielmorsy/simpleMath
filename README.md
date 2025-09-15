@@ -4,6 +4,10 @@ Python's NumPy, it lets you work with multi-dimensional arrays and leverages SIM
 speed up mathematical operations with minimal fuss. Whether you need simple element-wise math or custom,
 high-performance operations, `simpleMath` keeps things fast, readable, and easy to extend.
 
+## Important Note:
+Unfortunately I didn't know while writing that there is no pow, exp, log out of the box in SIMD instructions and they were created by Intel SVLM and people external libraries for it (This project is more than one year old but I did a rewrite). So, I had to try and write them myself. 
+
+In both log and exp I have issues with range reduction. Unfortunately I don't know how to solve this issue. but you can check my messy code at `crafted-pow`.  You can find the math behind `exp` function inside `docs/exp.md`. I couldn't build a version for log as it left my brain spinning for hours tinking it was an issue with binary moving but I learnt the hard truth. For `exp` I have currently an issue with values below `1.1` and for some mysterious reason I have an issue with `3.0` in `log` 
 ## Key Features
 
 - Header-Only – Just include the headers; no complex build steps.
