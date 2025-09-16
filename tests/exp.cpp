@@ -42,9 +42,10 @@ TEST(SMArrayExpTest, FloatArrayExp1) {
 TEST(SMArrayExpTest, FloatArrayExp) {
     SMArray<float> arr = {0.3f, 0.5f, 1.0f, 0.1f, 0.5f, 1.0f, 0.1f, 0.5f, 1.0f};
     auto result = sm::exp(arr);
-    EXPECT_NEAR(result(0), std::exp(0.3), 1e-12);
-    EXPECT_NEAR(result(1), std::exp(0.5), 1e-12);
-    EXPECT_NEAR(result(2), std::exp(1.0), 1e-12);
+    EXPECT_NEAR(result(0), std::exp(0.3f), 1e-12);
+    EXPECT_NEAR(result(1), std::exp(0.5f), 1e-12);
+    EXPECT_NEAR(result(2), std::exp(1.0f), 1e-12);
+    EXPECT_NEAR(result(3), std::exp(.1f), 1e-12);
 }
 
 TEST(SMArrayExpTest, DoubleArrayExp) {
